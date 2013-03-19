@@ -22,4 +22,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake"
 
   spec.add_runtime_dependency "log4r"
+  spec.add_runtime_dependency "libxml-ruby", ">= 0.8.3"
 end
