@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<occpchallengefile>
+    <!-- Describe the current scenario; instance data can ovveride this section -->
+    <scenario>
+        <gameid id="1" />
+        <name>Red Team vs. Blue Team</name>
+        <type>Network Defense</type>
+        <description>Blue team defends the network against automated Red team attacks. This scenario focuses on protecting against weak passwords and unused services.</description>
+
+        <!-- Length of time to run this scenario -->
+        <length format="hh:mm:ss">00:30:00</length>
+
+        <!-- Recommended virtual target network -->
+        <networkid number="1" />
+
+        <users>
+            <user name="moderator" pass="token"/>
+            <user name="blueplayer" pass="token"/>
+            <user name="spectator" pass="token"/>
+        </users>
+
+        <!-- When a user logs in to the system the components that are displayed are 
+             defined in these sections -->
+        <user-interfaces>
+            <user-interface name="spectator-ui"
+                            show-scoreboard="true"
+                            show-teams-all="false"
+                            show-other-controls="false">
+                <scoreboard name="spectator-board" />
+                <permitted-users>
+                    <user name="spectator" />
+                </permitted-users>    
+            </user-interface>
+            <user-interface name="moderator-ui"
+                            show-scoreboard="true"
+                            show-teams-all="true"
+                            show-other-controls="true">
+                <scoreboard name="moderator-board" />
+                <permitted-users>
+                    <user name="moderator" />
+                </permitted-users>    
+            </user-interface>
+        </user-interfaces>
+        
+        <!-- Score groups allow certain events to be grouped together for score calculation -->
+        <score-groups>
+            <score-group name="group1" />
+            <score-group name="group2" />
+            <score-group name="group3" />
+            <score-group name="group4" />
+            <score-group name="group5" />
+        </score-groups>
+        
+        <!-- Scoreboard show a particular calculation of a group of scores -->
+        <scoreboards>
+            <scoreboard name="moderator-board" update-rate="live">
+                <score name="Red Team">{$group1 + $group2 + $group3}</score>
+                <score name="Blue Team">{$group4 + $group5 - $group3}</score>
+                <score name="Service Level">{$group1 + $group2 + $group5}</score>
+            </scoreboard>
+            <scoreboard name="spectator-board" update-rate="live">
+                <score name="Red Team">{$group1 + $group2 + $group3}</score>
+                <score name="Blue Team">{$group4 + $group5 - $group3}</score>
+                <score name="Service Level">{$group1 + $group2 + $group5}</score>
+            </scoreboard>
+            <scoreboard name="player-board" update-rate="1min">
+                <score name="Red Team">{$group1 + $group2 + $group3}</score>
+                <score name="Blue Team">{$group4 + $group5 - $group3}</score>
+                <score name="Service Level">{$group1 + $group2 + $group5}</score>
+            </scoreboard>
+        </scoreboards>
+
+
+    </scenario>
+
+    <!-- Instance data overrides the scenario section -->
+    <instance>    
+        <length format="hh:mm:ss">00:30:00</length>
+    </instance>
+
+
+    <team name="TEMPLATE" />
+        <location host-name="localhost" ip-address="127.0.0.1" />
+        <starttime format="hh:mm:ss">00:00:00</starttime>
+        <endtime format="hh:mm:ss">99:99:99</endtime>
+        <speed factor="1.0" />
+        
+        <team-events>
+            <team-event>
+                <name>TEMPLATE</name>
+                <event-id id="" />
+                <handler name="exec|metasploit" />
+                <starttime format="hh:mm:ss">00:00:00</starttime>
+                <endtime format="hh:mm:ss">99:99:99</endtime>
+                <rate scale="min">5</rate>
+                <score-atomic score-group="" points="5" />
+
+            </events>
+        </events>
+    </team>
+
+</occpchallengefile>
+
