@@ -17,6 +17,7 @@ module OCCPGameServer
 
         $log.debug("Opening instance file located at: " + instancefile)
 
+
     end
     
     #Setup and parse command line parameters
