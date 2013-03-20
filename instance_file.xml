@@ -78,25 +78,78 @@
         <length format="hh:mm:ss">00:30:00</length>
     </instance>
 
+    <!-- Identify the handlers needed to run events -->
+    <event-handlers>
 
-    <team name="TEMPLATE" />
-        <location host-name="localhost" ip-address="127.0.0.1" />
+        <handler name="exec-handler-1" 
+                 class-handler="exec-handler" />
+        <handler name="metasploit-handler-1"
+                 class-handler="metasploit-handler"
+                 server-hostname="host1"
+                 server-ip=""
+                 server-port="" />
+
+        <!-- More than one location could be used to launch events -->
+        <handler name="metasploit-handler-2"
+                 class-handler="metasploit-handler"
+                 server-hostname="host2"
+                 server-ip=""
+                 server-port="" />
+
+    </event-handlers>
+
+    <!-- Identify each location that team processes will execute.
+         Each of these locations needs to be contacted to dispatch the appropriate team code to. -->
+    <team-locations>
+        <team-runner name="Local"
+                     hostname="localhost"
+                     ip-addr="127.0.0.1"
+                     port="24365" />
+        <team-runner name="RemoteHost1"
+                     hostname="RemoteHostName"
+                     ip-addr="0.0.0.0"
+                     port="24365" />
+    </team-locations>
+
+    <team name="TEMPLATE">
+    
+        <!-- Identifies the name of the location to dispatch this team to -->
+        <team-runner="Local" />
+        
+        <!-- Time to begin and end list execution relative to the game clock -->
         <starttime format="hh:mm:ss">00:00:00</starttime>
         <endtime format="hh:mm:ss">99:99:99</endtime>
+        
+        <!-- Rate at which events are executed from the event list -->
         <speed factor="1.0" />
         
-        <team-events>
+        <!-- Parent block for events in this teams event list -->
+        <team-event-list>
             <team-event>
                 <name>TEMPLATE</name>
                 <event-id id="" />
-                <handler name="exec|metasploit" />
+                <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
+                <handler name="exec-handler-1|metasploit-handler-1|metasploit-handler-2" />
+                <handler-event-id guid="" />
+                <!-- Time to begin and end execution relative to the game clock -->
                 <starttime format="hh:mm:ss">00:00:00</starttime>
                 <endtime format="hh:mm:ss">99:99:99</endtime>
+                <!-- Possible rates include sec|min|hour;
+                     drift [0.0 - 1.0] create semi-random event executions -->
                 <rate scale="min">5</rate>
-                <score-atomic score-group="" points="5" />
+                <drift>0.0</drift>
+                <!-- Submit scores to the identified groups -->
+                <score-atomic score-group="group1" points="5" />
+                <score-atomic score-group="group2" points="-3" />
+                <!-- Event specific parameters -->
+                <parameters>
+                    <param>
 
-            </events>
-        </events>
+                    </param>
+                </paramters>
+            </team-event>
+
+        </team-event-list>
     </team>
 
 </occpchallengefile>
