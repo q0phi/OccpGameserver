@@ -1,11 +1,15 @@
+$LOAD_PATH.unshift(File.dirname(__FILE__))
 require "OCCPGameServer/version"
+require "OCCPGameServer/mainloop"
 require "log4r"
 require "optparse"
-require "xml"
+require "libxml"
 
 
 module OCCPGameServer
   
+    include LibXML
+
     # Your code goes here...
     def self.ipsum
         $log.debug("Setting up function")
@@ -16,7 +20,21 @@ module OCCPGameServer
     def self.instance_file_parser(instancefile)
 
         $log.debug("Opening instance file located at: " + instancefile)
+        
+        instance_parser = XML::Parser.file(instancefile)
+        doc = instance_parser.parse
 
+        #Do something with challenge metadata
+        scenario_name = doc.find('/occpchallenge/scenario/name').first
+        if scenario_name.nil? or scenario_name.content.length <1 then
+            puts "Challenge name cannot be blank"
+        else
+            puts scenario_name.content
+        end
+
+        #Setup the team
+        runner = MainLoop.new
+        puts runner
 
     end
     
@@ -58,6 +76,9 @@ module OCCPGameServer
     #Decide if this will be the master or a slave agent
     if options[:gamefile] 
         $log.info("GameServer master mode")
+
+        #Create the needed data structures for a primary instance
+        
 
         #Parse given instance file
         instance_file_parser(options[:gamefile])
