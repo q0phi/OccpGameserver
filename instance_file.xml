@@ -8,8 +8,8 @@
         <description>Blue team defends the network against automated Red team attacks. This scenario focuses on protecting against weak passwords and unused services.</description>
 
         <!-- Length of time to run this scenario -->
-        <length format="hh:mm:ss"
-                time="00:30:00" />
+        <length format="minutes"
+                time="30" />
 
         <!-- Recommended virtual target network -->
         <networkid number="1" />
@@ -76,16 +76,30 @@
 
     <!-- Instance data overrides the scenario section -->
     <instance>    
-        <length format="hh:mm:ss">00:30:00</length>
+        <length format="seconds">00:30:00</length>
     </instance>
 
+    <!-- Identify each location that team processes will execute.
+         Each of these locations needs to be contacted to dispatch the appropriate team code to. 
+         These hosts need to specified in the host section. -->
+    <team-hosts>
+        <team-host name="Local"
+                     hostname="localhost"
+                     ip-addr="127.0.0.1"
+                     port="24365" />
+        <team-host name="RemoteHost1"
+                     hostname="RemoteHostName"
+                     ip-addr="0.0.0.0"
+                     port="24365" />
+    </team-hosts>
+   
     <!-- Identify the handlers needed to run events -->
     <event-handlers>
 
         <handler name="exec-handler-1" 
-                 class-handler="exec-handler" />
+                 class-handler="ExecHandler" />
         <handler name="metasploit-handler-1"
-                 class-handler="metasploit-handler"
+                 class-handler="MetasploitHandler"
                  server-hostname="host1"
                  server-ip=""
                  server-port="" />
@@ -99,57 +113,214 @@
 
     </event-handlers>
 
-    <!-- Identify each location that team processes will execute.
-         Each of these locations needs to be contacted to dispatch the appropriate team code to. -->
-    <team-locations>
-        <team-runner name="Local"
-                     hostname="localhost"
-                     ip-addr="127.0.0.1"
-                     port="24365" />
-        <team-runner name="RemoteHost1"
-                     hostname="RemoteHostName"
-                     ip-addr="0.0.0.0"
-                     port="24365" />
-    </team-locations>
-
-    <team name="TEMPLATE">
+    <team name="Blue Team">
     
         <!-- Identifies the name of the location to dispatch this team to -->
-        <team-runner name="Local" />
-        
-        <!-- Time to begin and end list execution relative to the game clock -->
-        <starttime format="hh:mm:ss">00:00:00</starttime>
-        <endtime format="hh:mm:ss">99:99:99</endtime>
-        
+        <team-host hostname="localhost" />
+              
         <!-- Rate at which events are executed from the event list -->
         <speed factor="1.0" />
         
         <!-- Parent block for events in this teams event list -->
         <team-event-list>
             <team-event>
-                <name>TEMPLATE</name>
+                <event-name name="Ping" />
                 <event-id id="" />
                 <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
-                <handler name="exec-handler-1|metasploit-handler-1|metasploit-handler-2" />
+                <handler name="exec-handler-1" />
                 <handler-event-id guid="" />
                 <!-- Time to begin and end execution relative to the game clock -->
-                <starttime format="hh:mm:ss">00:00:00</starttime>
-                <endtime format="hh:mm:ss">99:99:99</endtime>
+                <starttime format="seconds" time="0" />
+                <endtime format="seconds" time="9999999" />
                 <!-- Possible rates include sec|min|hour;
                      drift [0.0 - 1.0] create semi-random event executions -->
-                <rate scale="min">5</rate>
-                <drift>0.0</drift>
+                <rate scale="min" value="5" />
+                <drift value="0.0" />
                 <!-- Submit scores to the identified groups -->
                 <score-atomic score-group="group1" points="5" />
                 <score-atomic score-group="group2" points="-3" />
                 <!-- Event specific parameters -->
                 <parameters>
-                    <param>
-
+                    <param name="host" value="127.0.0.1" />
+                    <param name="count" value="15" />
+                </parameters>
+            </team-event>
+            <team-event>
+                <event-name name="FTP Attack" />
+                <event-id id="" />
+                <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
+                <handler name="metasploit-handler-1" />
+                <handler-event-id guid="" />
+                <!-- Time to begin and end execution relative to the game clock -->
+                <starttime format="seconds" time="0" />
+                <endtime format="seconds" time="9999999" />
+                <!-- Possible rates include sec|min|hour;
+                     drift [0.0 - 1.0] create semi-random event executions -->
+                <rate scale="min" value="5" />
+                <drift value="0.0" />
+                <!-- Submit scores to the identified groups -->
+                <score-atomic score-group="group1" points="5" />
+                <score-atomic score-group="group2" points="-3" />
+                <!-- Event specific parameters -->
+                <parameters>
+                    <param name="host" value="10.0.0.6" />
+                    <param name="port" value="22" />
+                    <param name="credentials">
                     </param>
                 </parameters>
             </team-event>
-
+            <team-event>
+                <event-name name="Ping" />
+                <event-id id="" />
+                <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
+                <handler name="exec-handler-1" />
+                <handler-event-id guid="" />
+                <!-- Time to begin and end execution relative to the game clock -->
+                <starttime format="seconds" time="0" />
+                <endtime format="seconds" time="9999999" />
+                <!-- Possible rates include sec|min|hour;
+                     drift [0.0 - 1.0] create semi-random event executions -->
+                <rate scale="min" value="5" />
+                <drift value="0.0" />
+                <!-- Submit scores to the identified groups -->
+                <score-atomic score-group="group1" points="5" />
+                <score-atomic score-group="group2" points="-3" />
+                <!-- Event specific parameters -->
+                <parameters>
+                    <param name="host" value="127.0.0.1" />
+                    <param name="count" value="15" />
+                </parameters>
+            </team-event>
+            <team-event>
+                <event-name name="FTP Attack" />
+                <event-id id="" />
+                <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
+                <handler name="metasploit-handler-1" />
+                <handler-event-id guid="" />
+                <!-- Time to begin and end execution relative to the game clock -->
+                <starttime format="seconds" time="0" />
+                <endtime format="seconds" time="9999999" />
+                <!-- Possible rates include sec|min|hour;
+                     drift [0.0 - 1.0] create semi-random event executions -->
+                <rate scale="min" value="5" />
+                <drift value="0.0" />
+                <!-- Submit scores to the identified groups -->
+                <score-atomic score-group="group1" points="5" />
+                <score-atomic score-group="group2" points="-3" />
+                <!-- Event specific parameters -->
+                <parameters>
+                    <param name="host" value="10.0.0.6" />
+                    <param name="port" value="22" />
+                    <param name="credentials">
+                    </param>
+                </parameters>
+            </team-event>
+           
+        </team-event-list>
+    </team>
+    <team name="Red Team">
+    
+        <!-- Identifies the name of the location to dispatch this team to -->
+        <team-host hostname="localhost" />
+              
+        <!-- Rate at which events are executed from the event list -->
+        <speed factor="1.0" />
+        
+        <!-- Parent block for events in this teams event list -->
+        <team-event-list>
+            <team-event>
+                <event-name name="Ping" />
+                <event-id id="" />
+                <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
+                <handler name="exec-handler-1" />
+                <handler-event-id guid="" />
+                <!-- Time to begin and end execution relative to the game clock -->
+                <starttime format="seconds" time="0" />
+                <endtime format="seconds" time="9999999" />
+                <!-- Possible rates include sec|min|hour;
+                     drift [0.0 - 1.0] create semi-random event executions -->
+                <rate scale="min" value="5" />
+                <drift value="0.0" />
+                <!-- Submit scores to the identified groups -->
+                <score-atomic score-group="group1" points="5" />
+                <score-atomic score-group="group2" points="-3" />
+                <!-- Event specific parameters -->
+                <parameters>
+                    <param name="host" value="127.0.0.1" />
+                    <param name="count" value="15" />
+                </parameters>
+            </team-event>
+            <team-event>
+                <event-name name="FTP Attack" />
+                <event-id id="" />
+                <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
+                <handler name="metasploit-handler-1" />
+                <handler-event-id guid="" />
+                <!-- Time to begin and end execution relative to the game clock -->
+                <starttime format="seconds" time="0" />
+                <endtime format="seconds" time="9999999" />
+                <!-- Possible rates include sec|min|hour;
+                     drift [0.0 - 1.0] create semi-random event executions -->
+                <rate scale="min" value="5" />
+                <drift value="0.0" />
+                <!-- Submit scores to the identified groups -->
+                <score-atomic score-group="group1" points="5" />
+                <score-atomic score-group="group2" points="-3" />
+                <!-- Event specific parameters -->
+                <parameters>
+                    <param name="host" value="10.0.0.6" />
+                    <param name="port" value="22" />
+                    <param name="credentials">
+                    </param>
+                </parameters>
+            </team-event>
+            <team-event>
+                <event-name name="Ping" />
+                <event-id id="" />
+                <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
+                <handler name="exec-handler-1" />
+                <handler-event-id guid="" />
+                <!-- Time to begin and end execution relative to the game clock -->
+                <starttime format="seconds" time="0" />
+                <endtime format="seconds" time="9999999" />
+                <!-- Possible rates include sec|min|hour;
+                     drift [0.0 - 1.0] create semi-random event executions -->
+                <rate scale="min" value="5" />
+                <drift value="0.0" />
+                <!-- Submit scores to the identified groups -->
+                <score-atomic score-group="group1" points="5" />
+                <score-atomic score-group="group2" points="-3" />
+                <!-- Event specific parameters -->
+                <parameters>
+                    <param name="host" value="127.0.0.1" />
+                    <param name="count" value="15" />
+                </parameters>
+            </team-event>
+            <team-event>
+                <event-name name="FTP Attack" />
+                <event-id id="" />
+                <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
+                <handler name="metasploit-handler-1" />
+                <handler-event-id guid="" />
+                <!-- Time to begin and end execution relative to the game clock -->
+                <starttime format="seconds" time="0" />
+                <endtime format="seconds" time="9999999" />
+                <!-- Possible rates include sec|min|hour;
+                     drift [0.0 - 1.0] create semi-random event executions -->
+                <rate scale="min" value="5" />
+                <drift value="0.0" />
+                <!-- Submit scores to the identified groups -->
+                <score-atomic score-group="group1" points="5" />
+                <score-atomic score-group="group2" points="-3" />
+                <!-- Event specific parameters -->
+                <parameters>
+                    <param name="host" value="10.0.0.6" />
+                    <param name="port" value="22" />
+                    <param name="credentials">
+                    </param>
+                </parameters>
+            </team-event>
+           
         </team-event-list>
     </team>
 
