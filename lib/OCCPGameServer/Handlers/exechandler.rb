@@ -15,6 +15,7 @@ class ExecHandler < Handler
         new_event.eventuid = SecureRandom.uuid
         new_event.starttime = event.find('starttime').first.attributes["time"].to_i
         new_event.endtime = event.find('endtime').first.attributes["time"].to_i
+        new_event.freqscale = event.find('rate').first.attributes["scale"].to_s
         new_event.frequency = event.find('rate').first.attributes["value"].to_f
         new_event.drift = event.find('drift').first.attributes["value"].to_f
 

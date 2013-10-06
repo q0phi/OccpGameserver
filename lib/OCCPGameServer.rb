@@ -18,6 +18,8 @@ require "log4r"
 require "optparse"
 require "libxml"
 require "time"
+#require "eventmachine"
+#require "amqp"
 
 require "colorize"
 
@@ -40,14 +42,11 @@ module OCCPGameServer
         new_team = Team.new
 
         new_team.teamname = newteamxmlnode.attributes["name"]
-
         new_team.teamhost = newteamxmlnode.find('team-host').first.attributes["hostname"]
         new_team.speedfactor = newteamxmlnode.find('speed').first.attributes["factor"]
 
         newteamxmlnode.find('team-event-list').each{ |eventnode|
-            
             new_team.add_raw_event(eventnode)
-
         }
 
         return new_team
@@ -68,7 +67,7 @@ module OCCPGameServer
             puts scenario_name
         end
 
-        #Setup the team
+        #Setup the main application
         main_runner = Main.new
 
         main_runner.scenarioname = scenario_name
@@ -116,7 +115,7 @@ module OCCPGameServer
            main_runner.add_handler(handler_class)
         }
 
-        # Load each team
+        # Load each team by parsing
         doc.find('/occpchallenge/team').each { |node|
             print "Parsing Team: " + node.attributes["name"] + " ... "
             $stdout.flush

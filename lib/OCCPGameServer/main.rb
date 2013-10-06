@@ -11,9 +11,14 @@ module OCCPGameServer
             @teams = Array.new
             @localteams = Array.new
             
+            #Run queue for event that have been launched by a ascheduler
+            @eventRunQueue = Queue.new
+
             @score = []
 
             @handlers= Array.new
+
+            @gameclock = GameClock.new
         end
 
         def add_event()
@@ -58,8 +63,22 @@ module OCCPGameServer
         # Entry point for the post-setup code
         def run ()
 
+            #create a taskmaster that will pop events off the main queue and spin them into worker threads
+            @taskmaster = Thread.new{ 
+            
+                workerthreads = []
 
-            #Scan each of the teams and dispatch them as neccessary
+                nextevent = @eventRunQueue.pop
+
+                workerthreads[] = Thread.new{
+                    #do something with each nextevent
+                    puts nextevent.name.blue
+                }
+
+                workerthreads.each { |wthread| wthread.join }
+            }
+
+            #Launch each teams scheduler
             @teams.each { |team|
                 if team.teamhost == "localhost" 
                     @localteams << Thread.new { team.run(self) }
