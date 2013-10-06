@@ -1,9 +1,19 @@
 module OCCPGameServer
 
     class GameClock
-#        attr_accessor :gamelength
-        attr_reader :elapsedtime, :starttime, :endtime
+        
+        @clockStates = {:paused => 'PAUSED', :running => 'RUNNING' }
 
+#        attr_accessor :gamelength
+#        attr_reader :elapsedtime, :starttime, :endtime
+        
+        def initialize
+            @mutex = Mutex.new
+            @clockstate = :running
+            @lastreadtime = Time.now
+            @gametime = 0
+
+        end
         def set_gamelength(time, format)
            # @gamelength = DateTime.strptime(time, format)
            case format
@@ -20,13 +30,40 @@ module OCCPGameServer
         end
 
         def start
+            mutex.synchronize do
+                @lastreadtime = Time.now
+                @clockstate = :running
+            end
+        end
+        
+        def resume
+            @mutex.synchronize do
+                @lastreadtime = Time.now
+                @clockstate = :running
+            end
         end
 
         def pause
+            @mutex.synchronize do
+                @gametime = Time.now - @lastreadtime + @gametime
+                @clockstate = :paused
+            end
         end
 
-        def get_clock
+        def gametime
+
+            if @clockstate === :paused
+                @gametime
+            else
+                @mutex.synchronize do
+                    moment = Time.now
+                    @gametime = moment - @lastreadtime + @gametime
+                    @lastreadtime = moment
+                end
+                @gametime
+            end
         end
+
 
     end
 
