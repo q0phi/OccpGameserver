@@ -95,9 +95,9 @@ module OCCPGameServer
                     end  
                     
                     if @teamname === 'Red Team'
-                        puts evOne.name.to_s.red + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
+                        puts evOne.name.to_s.light_red + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
                     else
-                        puts evOne.name.to_s.light_cyan + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
+                        puts evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
                     end
             
                 end
