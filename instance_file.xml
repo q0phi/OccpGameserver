@@ -134,7 +134,7 @@
                 <endtime format="seconds" time="9999999" />
                 <!-- Possible rates include sec|min|hour;
                      drift [0.0 - 1.0] create semi-random event executions -->
-                <rate scale="min" value="5" />
+                <rate scale="sec" value="5" />
                 <drift value="0.0" />
                 <!-- Submit scores to the identified groups -->
                 <score-atomic score-group="group1" points="5" />
@@ -152,11 +152,11 @@
                 <handler name="metasploit-handler-1" />
                 <handler-event-id guid="" />
                 <!-- Time to begin and end execution relative to the game clock -->
-                <starttime format="seconds" time="15" />
+                <starttime format="seconds" time="0" />
                 <endtime format="seconds" time="9999999" />
                 <!-- Possible rates include sec|min|hour;
                      drift [0.0 - 1.0] create semi-random event executions -->
-                <rate scale="none" value="1" />
+                <rate scale="sec" value="1" />
                 <drift value="0.0" />
                 <!-- Submit scores to the identified groups -->
                 <score-atomic score-group="group1" points="5" />
@@ -285,7 +285,7 @@
                 <endtime format="seconds" time="9999999" />
                 <!-- Possible rates include sec|min|hour;
                      drift [0.0 - 1.0] create semi-random event executions -->
-          aaa      <rate scale="none" value="1" />
+                <rate scale="none" value="1" />
                 <drift value="0.0" />
                 <!-- Submit scores to the identified groups -->
                 <score-atomic score-group="group1" points="5" />
@@ -307,7 +307,7 @@
                 <endtime format="seconds" time="9999999" />
                 <!-- Possible rates include sec|min|hour;
                      drift [0.0 - 1.0] create semi-random event executions -->
-                <rate scale="min" value="5" />
+                <rate scale="sec" value="5" />
                 <drift value="0.0" />
                 <!-- Submit scores to the identified groups -->
                 <score-atomic score-group="group1" points="5" />

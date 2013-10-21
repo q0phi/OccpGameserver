@@ -5,6 +5,7 @@ require "OCCPGameServer/version"
 require "OCCPGameServer/main"
 require "OCCPGameServer/gameclock"
 require "OCCPGameServer/team"
+require "OCCPGameServer/gmessage"
 require "OCCPGameServer/Handlers/handler"
 require "OCCPGameServer/Handlers/exechandler"
 require "OCCPGameServer/Handlers/metasploithandler"
@@ -18,6 +19,7 @@ require "log4r"
 require "optparse"
 require "libxml"
 require "time"
+require 'thread'
 #require "eventmachine"
 #require "amqp"
 
@@ -38,9 +40,12 @@ module OCCPGameServer
     # This means that the team itself should be parsed
     # each of it's events should be bundled and parsed separately
     def self.parse_team(newteamxmlnode)
+    
+        require 'securerandom'
 
         new_team = Team.new
 
+        new_team.teamid = SecureRandom.uuid
         new_team.teamname = newteamxmlnode.attributes["name"]
         new_team.teamhost = newteamxmlnode.find('team-host').first.attributes["hostname"]
         new_team.speedfactor = newteamxmlnode.find('speed').first.attributes["factor"]
@@ -192,7 +197,7 @@ module OCCPGameServer
 
         # Handle user tty
         #
-        while false do
+        while true do
             puts "Enter Q to exit or S for status"
             u_input = gets.chomp
 

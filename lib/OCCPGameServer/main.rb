@@ -2,7 +2,8 @@ module OCCPGameServer
 
     class Main
 
-        attr_accessor :gameclock, :networkid, :scenarioname
+        attr_accessor :gameclock, :networkid, :scenarioname, :INBOX
+
 
         def initialize
             @events = {}
@@ -13,6 +14,8 @@ module OCCPGameServer
             
             #Run queue for event that have been launched by a ascheduler
             @eventRunQueue = Queue.new
+            
+            @INBOX = Queue.new
 
             @score = []
 
@@ -81,15 +84,36 @@ module OCCPGameServer
             #Launch each teams scheduler
             @teams.each { |team|
                 if team.teamhost == "localhost" 
-                    @localteams << Thread.new { team.run(self) }
+                    @localteams << {:teamid=>team.teamid, :thr=> Thread.new { team.run(self) }}
                 else
                     #lookup the connection information for this team and dispatch the team
                 end
 
             }
+            
+            while message = @INBOX.pop do
+
+                #poll the @INBOX waiting for tasks
+                #message = @INBOX.pop
+                #message = GMessage.new({:teamid=>@teamid,:signal=>'READY'})
+                
+                #puts message.fromid.to_s + " " + message.signal.to_s
+
+                case message.signal
+                when 'CONSOLE'
+                    puts message.fromid.to_s.yellow + " " + message.msg.to_s
+                when 'DIE'
+                    break
+                else
+                    break
+                end
+
+
+            end
 
             #wait for all the teams to finish
-            @localteams.each { |team| team.join }
+            @localteams.each { |team| team[:thr].join }
+            @taskmaster.join
 
         end
 
