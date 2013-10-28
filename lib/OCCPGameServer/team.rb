@@ -113,6 +113,7 @@ module OCCPGameServer
                             numrun = evOne.frequency * EVENT_PERIOD
                             numrun.to_i.times { |i|
                                 evOne.eventuid = SecureRandom.uuid
+                                parent_main.eventRunQueue << evOne
                                 nextLL << evOne
                             }
                         
@@ -130,6 +131,7 @@ module OCCPGameServer
                             end
                             numrun.to_i.times { |i|
                                 evOne.eventuid = SecureRandom.uuid
+                                parent_main.eventRunQueue << evOne
                                 nextLL << evOne
                             }
 
@@ -147,6 +149,7 @@ module OCCPGameServer
                             end
                             numrun.to_i.times { |i|
                                 evOne.eventuid = SecureRandom.uuid
+                                parent_main.eventRunQueue << evOne
                                 nextLL << evOne
                             }
 
@@ -157,6 +160,7 @@ module OCCPGameServer
                         #msgtext = evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
                         msgtext = "Pushing #{nextLL.count.to_s.yellow} events on the run Queue"
                         parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+
 
                     }
                     
@@ -193,10 +197,10 @@ module OCCPGameServer
                         levent = evOne
                         if @teamname === 'Red Team'
                             msgtext = evOne.name.to_s.light_red + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
-                            #parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                            parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
                         else
                             msgtext = evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
-                            #parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                            parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
                         end
                     else
                         msgtext = clock.to_s.yellow + " " + levent.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green

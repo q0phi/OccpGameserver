@@ -2,7 +2,14 @@ module OCCPGameServer
 
     class Main
 
-        attr_accessor :gameclock, :networkid, :scenarioname, :INBOX
+        attr_accessor :gameclock, :networkid, :scenarioname, :INBOX, :eventRunQueue
+        attr_accessor :STATE
+
+        #Challenge Run States
+        WAIT = 1
+        READY = 2
+        RUN = 3
+        STOP = 4
 
 
         def initialize
@@ -22,6 +29,8 @@ module OCCPGameServer
             @handlers= Array.new
 
             @gameclock = GameClock.new
+
+            @STATE = RUN
         end
 
         def add_event()
@@ -70,13 +79,21 @@ module OCCPGameServer
             @taskmaster = Thread.new{ 
             
                 workerthreads = []
+                
+                while true do
+                
+                    if @STATE === WAIT
+                       sleep 1
+                       next
+                    end
 
-                nextevent = @eventRunQueue.pop
+                    nextevent = @eventRunQueue.pop
 
-                workerthreads[] = Thread.new{
-                    #do something with each nextevent
-                    puts nextevent.name.blue
-                }
+                    workerthreads << Thread.new{
+                        #do something with each nextevent
+                        puts nextevent.name.to_s.blue
+                    }
+                end
 
                 workerthreads.each { |wthread| wthread.join }
             }
