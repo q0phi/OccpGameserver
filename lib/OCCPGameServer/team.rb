@@ -27,6 +27,7 @@ module OCCPGameServer
         
             @INBOX = Queue.new
 
+            @periodThread = Array.new
 
         end
 
@@ -93,81 +94,50 @@ module OCCPGameServer
             parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>'READY'})
            
 
-            #Launch a separate thread for the periodically scheduled events.
-            periodThread = Thread.new {
-                while true do
-
-                    parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Periodic Wake-Up at #{parent_main.gameclock.gametime.to_s.green}"})
-                    #Process the next block of periodic events
-                    @periodicList.each {|evOne|
-
-                        nextLL = Array.new #event prepped for next launch
-                        
+            #Launch a separate thread for each of the periodically scheduled events.
+            @periodicList.each {|evOne|
+                @periodThread << Thread.new {
+               
+                    # EventThread Run Loop
+                    while true do
+                    #   parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Periodic Wake-Up at #{parent_main.gameclock.gametime.to_s.green}"})
                         clock = parent_main.gameclock.gametime
-                        if evOne.starttime > clock or evOne.endtime < clock
+                        if evOne.starttime > clock 
+                            sleep(1)
                             next
+                        elsif evOne.endtime < clock
+                            break
                         end
 
+                        #run the event
+                        msgtext = "PERIODIC ".green + evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
+                        #msgtext = "Pushing #{nextLL.count.to_s.yellow} events on the run Queue"
+                        parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                        
+
                         if evOne.freqscale === 'sec' 
-                    
-                            numrun = evOne.frequency * EVENT_PERIOD
-                            numrun.to_i.times { |i|
-                                evOne.eventuid = SecureRandom.uuid
-                                parent_main.eventRunQueue << evOne
-                                nextLL << evOne
-                            }
+                            sleepFor = 1/evOne.frequency
+                            sleep(sleepFor)
                         
                         elsif evOne.freqscale === 'min'
-                            numperiod = evOne.frequency / 60
-                            numtorun = numperiod * EVENT_PERIOD
-                            rollover = evOne.rollover
-                            if !rollover.nil?
-                                numruntotal = rollover + numtorun
-                                numrun = numruntotal.to_i
-                                evOne.rollover = numruntotal % 1
-                            else
-                                numrun = numtorun.to_i
-                                evOne.rollover = numtorun % 1
-                            end
-                            numrun.to_i.times { |i|
-                                evOne.eventuid = SecureRandom.uuid
-                                parent_main.eventRunQueue << evOne
-                                nextLL << evOne
-                            }
-
+                            sleepFor = 60/evOne.frequency
+                            sleep(sleepFor)
+                            
                         elsif evOne.freqscale === 'hour'
-                            numperiod = evOne.frequency / 3600
-                            numtorun = numperiod * EVENT_PERIOD
-                            rollover = evOne.rollover
-                            if !rollover.nil?
-                                numruntotal = rollover + numtorun
-                                numrun = numruntotal.to_i
-                                evOne.rollover = numruntotal % 1
-                            else
-                                numrun = numtorun.to_i
-                                evOne.rollover = numtorun % 1
-                            end
-                            numrun.to_i.times { |i|
-                                evOne.eventuid = SecureRandom.uuid
-                                parent_main.eventRunQueue << evOne
-                                nextLL << evOne
-                            }
+                            sleepFor = 3600/evOne.frequency
+                            sleep(sleepFor)
 
                         else
                             next
                         end
 
                         #msgtext = evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
-                        msgtext = "Pushing #{nextLL.count.to_s.yellow} events on the run Queue"
-                        parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                        #msgtext = "Pushing #{nextLL.count.to_s.yellow} events on the run Queue"
+                        #parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
 
-
-                    }
-                    
-                    sleep EVENT_PERIOD
-                end # end major while loop
-            
-            }#end periodThread
+                    end # end EventThread while loop            
+                }#end periodThread
+            } #end periodicList
 
 
 ### RUN LOOP BEGINS ###
