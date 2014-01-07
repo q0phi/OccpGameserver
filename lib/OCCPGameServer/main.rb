@@ -3,7 +3,7 @@ module OCCPGameServer
     class Main
 
         attr_accessor :gameclock, :networkid, :scenarioname, :INBOX, :eventRunQueue
-        attr_accessor :STATE
+        attr_accessor :STATE, :db
 
         #Challenge Run States
         WAIT = 1
@@ -24,7 +24,7 @@ module OCCPGameServer
             
             @INBOX = Queue.new
 
-            @score = []
+            @db = ''
 
             @handlers= Array.new
 
@@ -58,14 +58,23 @@ module OCCPGameServer
                     return handler
                 end
             }
-            return false
+            return handle_name
         end
         
         def get_handlers()
             @handlers
         end
         
-        def record_score()
+        def record_score(scoreHash)
+
+            timeT = Time.now.to_i
+            group = scoreHash[:scoregroup]
+            value = scoreHash[:value]
+
+            @db.execute("INSERT INTO score values (?,?,?)", [timeT, group, value])
+
+            $log.info("Score RECORDED in DB")
+            
         end
         
         def dispatch_team(team)
@@ -119,6 +128,10 @@ module OCCPGameServer
                 case message.signal
                 when 'CONSOLE'
                     puts message.fromid.to_s.yellow + " " + message.msg.to_s
+                when 'SCORE'
+                    #We are receiving a score hash that should be added to the appropriate score group
+
+                    record_score(message.msg)
                 when 'DIE'
                     break
                 else

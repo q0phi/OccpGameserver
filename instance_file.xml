@@ -104,12 +104,12 @@
                  server-ip=""
                  server-port="" />
 
-        <!-- More than one location could be used to launch events -->
+        <!-- More than one location could be used to launch events 
         <handler name="metasploit-handler-2"
                  class-handler="metasploit-handler"
                  server-hostname="host2"
                  server-ip=""
-                 server-port="" />
+                 server-port="" /> -->
 
     </event-handlers>
 
@@ -124,6 +124,29 @@
         <!-- Parent block for events in this teams event list -->
         <team-event-list>
             <team-event>
+                <event-name name="Exec Test" />
+                <event-id id="" />
+                <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
+                <handler name="exec-handler-1" />
+                <handler-event-id guid="" />
+                <!-- Time to begin and end execution relative to the game clock -->
+                <starttime format="seconds" time="5" />
+                <endtime format="seconds" time="9999999" />
+                <!-- Possible rates include sec|min|hour;
+                     drift [0.0 - 1.0] create semi-random event executions -->
+                <rate scale="none" value="1" />
+                <drift value="0.0" />
+                <!-- Submit scores to the identified groups -->
+                <score-atomic when="success" score-group="group1" points="5" />
+                <score-atomic when="fail" score-group="group2" points="-3" />
+                <!-- Event specific parameters -->
+                <parameters>
+                    <param name="command" value="ping -c 1 127.0.0.1" />
+                </parameters>
+                <command value="ping -c 1 127.0.0.1" />
+            </team-event>
+            <team-event>
+                <command value="ping -c 1 127.0.0.1" />
                 <event-name name="Ping" />
                 <event-id id="" />
                 <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
@@ -170,13 +193,14 @@
                 </parameters>
             </team-event>
             <team-event>
+                <command value="ping -c 1 127.0.0.1" />
                 <event-name name="Ping" />
                 <event-id id="" />
                 <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
                 <handler name="exec-handler-1" />
                 <handler-event-id guid="" />
                 <!-- Time to begin and end execution relative to the game clock -->
-                <starttime format="seconds" time="14" />
+                <starttime format="seconds" time="10" />
                 <endtime format="seconds" time="9999999" />
                 <!-- Possible rates include sec|min|hour;
                      drift [0.0 - 1.0] create semi-random event executions -->
@@ -229,6 +253,7 @@
         <!-- Parent block for events in this teams event list -->
         <team-event-list>
             <team-event>
+                <command value="ping -c 1 127.0.0.1" />
                 <event-name name="Ping" />
                 <event-id id="" />
                 <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
@@ -275,6 +300,7 @@
                 </parameters>
             </team-event>
             <team-event>
+                <command value="pangalo" />
                 <event-name name="Ping" />
                 <event-id id="" />
                 <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->

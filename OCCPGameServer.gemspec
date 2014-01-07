@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.authors       = ["DFCSC"]
   spec.email         = ["software@dfcsc.uri.edu"]
   spec.description   = %q{GameServer for the OCCP}
-  spec.summary       = %q{This gem deploys the controlling gameserver required to run a scenario isntance}
+  spec.summary       = %q{This gem deploys the controlling gameserver required to run a scenario instance}
   spec.homepage      = "http://www.dfcsc.uri.edu/occp"
   spec.license       = "MIT"
 
@@ -25,5 +25,6 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "amqp", "~> 0.9.0"
   spec.add_runtime_dependency "colorize"
   spec.add_runtime_dependency "log4r"
+  spec.add_runtime_dependency "sqlite3"
   spec.add_runtime_dependency "libxml-ruby", ">= 0.8.3"
 end

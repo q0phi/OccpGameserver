@@ -3,6 +3,7 @@ module OCCPGameServer
     class Team #Really the TeamScheduler
 
         attr_accessor :teamname, :teamid, :speedfactor, :teamhost
+        attr_accessor :singletonList, :periodicList
 
         #Thread State Modes
         WAIT = 1
@@ -12,8 +13,7 @@ module OCCPGameServer
 
         #The periodic events will be calculated in a block of the next future X seconds
         EVENT_PERIOD = 5
-
-        
+                   
         def initialize()
 
             require 'securerandom'
@@ -28,6 +28,9 @@ module OCCPGameServer
             @INBOX = Queue.new
 
             @periodThread = Array.new
+            
+            @singletonList = Array.new
+            @periodicList = Array.new
 
         end
 
@@ -45,63 +48,31 @@ module OCCPGameServer
             @rawevents
         end
 
-        def run(parent_main)
+        def run(app_core)
 
             puts @teamname + " Executing..."
            
             
-            #Validate each event
-            # @rawevents list is an array of event lists
-            @rawevents.each {|eventlist|
-                eventlist.find('team-event').each {|event|
-                    
-                    #First Identify the handler
-                    handler_name = event.find("handler").first.attributes["name"]
-                   
-                    event_handler = parent_main.get_handler(handler_name)
-
-                    this_event = event_handler.parse_event(event)
-
-                    @events << this_event
-
-                }
-            
-            }
-            
-            #Split the list into periodic and single events
-            @singletonList = Array.new
-            @periodicList = Array.new
-
-            @events.each { |event|
-                if event.freqscale === 'none'
-                    @singletonList << event
-                    for i in 0..20
-                        event.starttime = rand 90 
-                        @singletonList << event.clone
-                    end
-                else
-                    @periodicList << event
-                end
-            }
-           
+                       
             sort1 = Time.now
             #Sort into the order that they should be popped into the @eventRunQueue
             @singletonList.sort!{|aEv,bEv| aEv.starttime <=> bEv.starttime }
             sorttime = Time.now - sort1
 
-            parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Total sort time for #{@singletonList.size.to_s} events is #{sorttime}."})
-            parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Number of periodic events is #{@periodicList.count.to_s} events."})
-            parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>'READY'})
+            app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Total sort time for #{@singletonList.size.to_s} events is #{sorttime}."})
+            app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Number of periodic events is #{@periodicList.count.to_s} events."})
+            app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>'READY'})
            
 
             #Launch a separate thread for each of the periodically scheduled events.
             @periodicList.each {|evOne|
+                next
                 @periodThread << Thread.new {
                
                     # EventThread Run Loop
                     while true do
-                    #   parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Periodic Wake-Up at #{parent_main.gameclock.gametime.to_s.green}"})
-                        clock = parent_main.gameclock.gametime
+                    #   app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Periodic Wake-Up at #{app_core.gameclock.gametime.to_s.green}"})
+                        clock = app_core.gameclock.gametime
                         if evOne.starttime > clock 
                             sleep(1)
                             next
@@ -110,9 +81,9 @@ module OCCPGameServer
                         end
 
                         #run the event
-                        msgtext = "PERIODIC ".green + evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
+                        msgtext = "PERIODIC ".green + evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + app_core.gameclock.gametime.to_s.green
                         #msgtext = "Pushing #{nextLL.count.to_s.yellow} events on the run Queue"
-                        parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                        app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
                         
 
                         if evOne.freqscale === 'sec' 
@@ -131,9 +102,9 @@ module OCCPGameServer
                             next
                         end
 
-                        #msgtext = evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
+                        #msgtext = evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + app_core.gameclock.gametime.to_s.green
                         #msgtext = "Pushing #{nextLL.count.to_s.yellow} events on the run Queue"
-                        #parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                        #app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
 
                     end # end EventThread while loop            
                 }#end periodThread
@@ -158,23 +129,28 @@ module OCCPGameServer
                     evOne = @singletonList.shift
 
                     if !evOne.nil?
-                        clock = parent_main.gameclock.gametime
+                        clock = app_core.gameclock.gametime
                         if evOne.starttime > clock
                             sleeptime = evOne.starttime - clock
                             #puts "#{@teamname} sleeping for #{sleeptime}"
                             sleep sleeptime
                         end  
                         levent = evOne
+                        
+                        # Get the handler from the app_core and launch the event
+                        event_handler = app_core.get_handler(evOne.eventhandler)
+                        this_event = event_handler.run(evOne, app_core)
+                        
                         if @teamname === 'Red Team'
-                            msgtext = evOne.name.to_s.light_red + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
-                            parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                            msgtext = evOne.name.to_s.light_red + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + app_core.gameclock.gametime.to_s.green
+                            app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
                         else
-                            msgtext = evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
-                            parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                            msgtext = evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + app_core.gameclock.gametime.to_s.green
+                            app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
                         end
                     else
-                        msgtext = clock.to_s.yellow + " " + levent.starttime.to_s.light_magenta + " " + parent_main.gameclock.gametime.to_s.green
-                        parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                        msgtext = clock.to_s.yellow + " " + levent.starttime.to_s.light_magenta + " " + app_core.gameclock.gametime.to_s.green
+                        app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
 
                         break
                     end
@@ -191,8 +167,8 @@ module OCCPGameServer
 
             end
 
-periodThread.join
-            parent_main.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Finished Executing."})
+            @periodThread.join
+            app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Finished Executing."})
         end
     end
 

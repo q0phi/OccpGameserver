@@ -1,3 +1,4 @@
+module OCCPGameServer
 class MetasploitHandler < Handler
 
     attr_accessor :serverhostname, :serverip, :serverport, :servertoken
@@ -15,10 +16,10 @@ class MetasploitHandler < Handler
         require 'securerandom'
 
         new_event  = ExecEvent.new
-        
+
+        new_event.eventhandler = event.find("handler").first.attributes["name"] 
         new_event.name = event.find('event-name').first.attributes["name"]
         new_event.eventuid = SecureRandom.uuid
-
         new_event.starttime = event.find('starttime').first.attributes["time"].to_i
         new_event.endtime = event.find('endtime').first.attributes["time"].to_i
         new_event.frequency = event.find('rate').first.attributes["value"].to_f
@@ -40,3 +41,4 @@ class MetasploitHandler < Handler
     end
 
 end #end class
+end #end module
