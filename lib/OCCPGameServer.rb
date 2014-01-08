@@ -215,16 +215,18 @@ module OCCPGameServer
         #Create the database for this run
         begin
 
-            db = SQLite3::Database.new(options[:datafile])
+            $db = SQLite3::Database.new(options[:datafile])
 
             #pre-populate the table structure
             dbschema = File.open('schema.sql', 'r')
-            db.execute dbschema.read
+            
+            $db.execute_batch dbschema.read
         
+
             #puts db.execute "SELECT * FROM sqlite_master WHERE type='table'"
             $log.info("Database Created and Initialized")
 
-            main_runner.db = db
+            #main_runner.db = db
 
         rescue SQLite3::Exception => e
 
@@ -254,7 +256,7 @@ module OCCPGameServer
         main.join
 
         #Cleanup and Close Files
-        db.close
+        $db.close
 
     else
         $log.info("GameServer slave mode")

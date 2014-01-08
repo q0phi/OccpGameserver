@@ -65,22 +65,6 @@ module OCCPGameServer
             @handlers
         end
         
-        def record_score(scoreHash)
-
-            timeT = Time.now.to_i
-            group = scoreHash[:scoregroup]
-            value = scoreHash[:value]
-
-            @db.execute("INSERT INTO score values (?,?,?)", [timeT, group, value])
-
-            $log.info("Score RECORDED in DB")
-            
-        end
-        
-        def dispatch_team(team)
-
-        end
-
         # Entry point for the post-setup code
         def run ()
 
@@ -117,38 +101,57 @@ module OCCPGameServer
 
             }
             
+            #Poll the @INBOX waiting for tasks
             while message = @INBOX.pop do
 
-                #poll the @INBOX waiting for tasks
-                #message = @INBOX.pop
-                #message = GMessage.new({:teamid=>@teamid,:signal=>'READY'})
-                
-                #puts message.fromid.to_s + " " + message.signal.to_s
-
                 case message.signal
+                
                 when 'CONSOLE'
+                    #Dump Messages to the Screen and into the logfile
                     puts message.fromid.to_s.yellow + " " + message.msg.to_s
+                    $log.info(message.fromid.to_s + ": " + message.msg.to_s)
+
                 when 'SCORE'
                     #We are receiving a score hash that should be added to the appropriate score group
+                    timeT = Time.now.to_i
+                    group = message.msg[:scoregroup]
+                    value = message.msg[:value]
+                    eventuid = message.msg[:eventuid]
 
-                    record_score(message.msg)
+                    $db.execute("INSERT INTO score VALUES (?,?,?,?)", [timeT, eventuid, group, value])
+                    $log.info("Score recorded in db.score")
+
+               
+                when 'EVENTLOG'
+                    #Log that an event was run       
+                    tblArray = [Time.now.to_i, 
+                        message.msg[:handler], 
+                        message.msg[:eventname], 
+                        message.msg[:eventuid], 
+                        message.msg[:custom], 
+                        message.msg[:status] 
+                    ]
+
+                    $db.execute("INSERT INTO event VALUES (?,?,?,?,?,?);", tblArray);
+                    $log.info("Event Recorded in db.event")
+
+
                 when 'DIE'
                     break
                 else
                     break
                 end
 
-
-            end
+            end #@INBOX Poll
 
             #wait for all the teams to finish
             @localteams.each { |team| team[:thr].join }
             @taskmaster.join
 
-        end
+        end #def run
 
 
 
-    end
+    end #Class
   
-end
+end #Module

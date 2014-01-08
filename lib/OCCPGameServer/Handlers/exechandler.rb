@@ -22,7 +22,7 @@ class ExecHandler < Handler
         new_event.drift = event.find('drift').first.attributes["value"].to_f
 
         event.find('score-atomic').each{ |score|
-            token = {}
+            token = {:succeed => true}
             if score.attributes["when"] == 'success'
                 token = {:succeed => true}
             elsif score.attributes["when"] == 'fail'
@@ -59,20 +59,35 @@ class ExecHandler < Handler
                 app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>msg})
         end
         
+        #Log message that the event ran
+        msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventuid => event.eventuid, :custom => event.command }
+        
         if( success === true )
-            #record a score
+
+            #Console
             app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>'RECORD SCORE GOOD'.green})
+            
+            #Database
+            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
+            
+            #Score Database
             event.scores.each {|score|
                 if score[:succeed]
-                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score})
+                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
                 end
             }
 
         else
+            #Console
             app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>'RECORD SCORE BAD'.red})
+            
+            #Database
+            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
+            
+            #Score Database
             event.scores.each {|score|
                 if !score[:succeed]
-                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score})
+                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
                 end
             }
         end

@@ -66,7 +66,7 @@ module OCCPGameServer
 
             #Launch a separate thread for each of the periodically scheduled events.
             @periodicList.each {|evOne|
-                next
+                #next
                 @periodThread << Thread.new {
                
                     # EventThread Run Loop
@@ -74,15 +74,19 @@ module OCCPGameServer
                     #   app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Periodic Wake-Up at #{app_core.gameclock.gametime.to_s.green}"})
                         clock = app_core.gameclock.gametime
                         if evOne.starttime > clock 
-                            sleep(1)
+                            sleep(evOne.starttime-clock) # don't wake up until the start time 
                             next
                         elsif evOne.endtime < clock
                             break
-                        end
+                        enf
 
                         #run the event
+                        
+                        # Get the handler from the app_core and launch the event
+                        event_handler = app_core.get_handler(evOne.eventhandler)
+                        this_event = event_handler.run(evOne, app_core)
+
                         msgtext = "PERIODIC ".green + evOne.name.to_s.light_cyan + " " + clock.to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + app_core.gameclock.gametime.to_s.green
-                        #msgtext = "Pushing #{nextLL.count.to_s.yellow} events on the run Queue"
                         app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
                         
 
