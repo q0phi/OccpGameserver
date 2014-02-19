@@ -15,6 +15,7 @@ Gem::Specification.new do |spec|
 
   spec.files         = `git ls-files`.split($/)
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
+  #spec.executables = ['occpgs']
   spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
   spec.require_paths = ["lib"]
 
@@ -22,9 +23,9 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake"
 
   spec.add_runtime_dependency "eventmachine"
-  spec.add_runtime_dependency "amqp", "~> 0.9.0"
   spec.add_runtime_dependency "colorize"
   spec.add_runtime_dependency "log4r"
   spec.add_runtime_dependency "sqlite3"
   spec.add_runtime_dependency "libxml-ruby", ">= 0.8.3"
+  spec.add_runtime_dependency "highline"
 end

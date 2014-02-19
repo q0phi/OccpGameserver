@@ -141,12 +141,12 @@
                 <score-atomic when="fail" score-group="group2" points="-3" />
                 <!-- Event specific parameters -->
                 <parameters>
-                    <param name="command" value="ping -c 1 127.0.0.1" />
+                    <param name="command" value="sping -c 1 127.0.0.1" />
                 </parameters>
-                <command value="ping -c 1 127.0.0.1" />
+                <command value="sping -c 1 127.0.0.1" />
             </team-event>
             <team-event>
-                <command value="ping -c 1 127.0.0.1" />
+                <command value="sping -c 1 127.0.0.1" />
                 <event-name name="Ping" />
                 <event-id id="" />
                 <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
@@ -193,7 +193,7 @@
                 </parameters>
             </team-event>
             <team-event>
-                <command value="ping -c 1 127.0.0.1" />
+                <command value="sping -c 1 127.0.0.1" />
                 <event-name name="Ping" />
                 <event-id id="" />
                 <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
@@ -253,7 +253,7 @@
         <!-- Parent block for events in this teams event list -->
         <team-event-list>
             <team-event>
-                <command value="ping -c 1 127.0.0.1" />
+                <command value="sping -c 1 127.0.0.1" />
                 <event-name name="Ping" />
                 <event-id id="" />
                 <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->

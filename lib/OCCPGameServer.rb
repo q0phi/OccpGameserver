@@ -21,7 +21,7 @@ require "libxml"
 require "time"
 require 'thread'
 require 'sqlite3'
-
+require "highline"
 require "colorize"
 
 
@@ -163,7 +163,7 @@ module OCCPGameServer
         opt.separator "Options"
 
         opt.on("-l","--logfile filename", "create the logfile using the given name") do |logfile|
-            filename = "gamelog-" + Time.new.strftime("%Y%m%dT%H%M%S") + ".txt"
+            filename = "gamelog.txt" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".txt"
             if File.directory?(logfile)
                 options[:logfile] = File.join(logfile,filename)
             else    
@@ -176,7 +176,7 @@ module OCCPGameServer
         end
         
         opt.on("-s","--database filename", "game record database") do |datafile|
-            filename = "gamedata-" + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
+            filename = "gamedata.db" #-" + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
             if File.directory?(datafile)
                 options[:datafile] = File.join(datafile,filename)
             else    
@@ -191,6 +191,7 @@ module OCCPGameServer
     end
 
     opt_parser.parse!
+
 
     #Setup default logging or use given log file name
     $log = Log4r::Logger.new('GameInstanceLog')
@@ -237,10 +238,17 @@ module OCCPGameServer
 
         #Launch the main application
         main = Thread.new { main_runner.run }
+    
+        #Setup the menuing system
+        hlMenu = HighLine.new
+        hlMenu.page_at = :auto
+
+
 
         # Handle user tty
-        #
-        while true do
+        exitable = false
+        while not exitable do
+            '''
             puts "Enter Q to exit or S for status"
             u_input = gets.chomp
 
@@ -251,6 +259,39 @@ module OCCPGameServer
             when "S"
                 puts main.status
             end
+            '''
+            hlMenu.choose do |menu|
+                menu.header = "Select from the list below"
+                menu.choice(:Status) {
+                    #currentStatus = main_runner.get_state()
+
+                    case currentStatus
+                        when Main::RUN
+                        hlMenu.say("All Teams are Running")
+                        when Main::WAIT
+                            hlMenu.say("Teams are Paused")
+                        end
+                    
+                }
+                menu.choice(:"Start"){
+                    main_runner.set_state(Main::RUN)
+                    #main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> Main::RUN}})
+                }
+                menu.choice(:"Pause"){
+                    main_runner.set_state(Main::WAIT)
+                    #main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> Main::WAIT}})
+                }
+                menu.choice(:"Clear Screen") {
+                    system("clear")
+                }
+                menu.choice(:Quit) { 
+                    hlMenu.say("Exiting...")
+                    main.exit
+                    exitable = true
+                }
+                menu.prompt = "Enter Selection: "
+            end
+
         end
 
         main.join

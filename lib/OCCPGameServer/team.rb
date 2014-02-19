@@ -23,7 +23,7 @@ module OCCPGameServer
             
             @rawevents = Array.new
 
-            @STATE = RUN
+            @STATE = WAIT
         
             @INBOX = Queue.new
 
@@ -48,11 +48,31 @@ module OCCPGameServer
             @rawevents
         end
 
-        def run(app_core)
+        def set_state(state)
 
-            puts @teamname + " Executing..."
-           
-            
+            case state
+                when WAIT
+                    if @STATE === RUN
+                        @periodThread.each{|evThread|
+                            evThread.stop
+                        }
+                    end
+                when RUN
+                    if @STATE === WAIT
+                        @periodThread.each{|evThread|
+                            evThread.wakeup
+                        }
+                    end
+            end
+
+
+            @STATE = state
+
+        end
+
+        def run(app_core)
+          
+            app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>'Executing...'})
                        
             sort1 = Time.now
             #Sort into the order that they should be popped into the @eventRunQueue
@@ -68,7 +88,10 @@ module OCCPGameServer
             @periodicList.each {|evOne|
                 #next
                 @periodThread << Thread.new {
-               
+              
+                    if @STATE === WAIT
+                        Thread.stop
+                    end
                     # EventThread Run Loop
                     while true do
                     #   app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Periodic Wake-Up at #{app_core.gameclock.gametime.to_s.green}"})
@@ -78,7 +101,7 @@ module OCCPGameServer
                             next
                         elsif evOne.endtime < clock
                             break
-                        enf
+                        end
 
                         #run the event
                         

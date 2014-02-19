@@ -52,7 +52,7 @@ class ExecHandler < Handler
         
         begin
             # run the provided command
-            success = system(event.command)
+            success = system(event.command, [:out, :err]=>'/dev/null')
 
         rescue Exception => e
                 msg = "Event failed to run: #{e.message}".red
@@ -76,6 +76,11 @@ class ExecHandler < Handler
                     app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
                 end
             }
+
+        elsif( success === nil )
+                msg = "Command failed to run: " + event.command
+                $log.error(msg)
+                #app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>msg})
 
         else
             #Console

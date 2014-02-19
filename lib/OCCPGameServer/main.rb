@@ -30,7 +30,7 @@ module OCCPGameServer
 
             @gameclock = GameClock.new
 
-            @STATE = RUN
+            @STATE = WAIT
         end
 
         def add_event()
@@ -64,12 +64,35 @@ module OCCPGameServer
         def get_handlers()
             @handlers
         end
+
+        def set_state(state)
+
+            case state
+                when WAIT
+                    if @STATE == RUN
+                        @teams.each { |team|
+                            team.set_state(state)
+                    }
+                    end
+                when RUN
+                    @teams.each { |team|
+                            team.set_state(state)
+                    }
+            end
+
+
+            @STATE = state
+        end
+        def get_state()
+            return @STATE
+        end
         
         # Entry point for the post-setup code
         def run ()
 
             #create a taskmaster that will pop events off the main queue and spin them into worker threads
-            @taskmaster = Thread.new{ 
+            '''
+                @taskmaster = Thread.new{ 
             
                 workerthreads = []
                 
@@ -90,7 +113,7 @@ module OCCPGameServer
 
                 workerthreads.each { |wthread| wthread.join }
             }
-
+            '''
             #Launch each teams scheduler
             @teams.each { |team|
                 if team.teamhost == "localhost" 
@@ -108,7 +131,7 @@ module OCCPGameServer
                 
                 when 'CONSOLE'
                     #Dump Messages to the Screen and into the logfile
-                    puts message.fromid.to_s.yellow + " " + message.msg.to_s
+                  #  puts message.fromid.to_s.yellow + " " + message.msg.to_s
                     $log.info(message.fromid.to_s + ": " + message.msg.to_s)
 
                 when 'SCORE'
@@ -135,6 +158,15 @@ module OCCPGameServer
                     $db.execute("INSERT INTO event VALUES (?,?,?,?,?,?);", tblArray);
                     $log.info("Event Recorded in db.event")
 
+                when 'COMMAND'
+
+                    command = message.msg
+                    
+                    case command[:command]
+                    when 'STATE'
+                        set_state(command[:state])
+                    end
+
 
                 when 'DIE'
                     break
@@ -146,7 +178,7 @@ module OCCPGameServer
 
             #wait for all the teams to finish
             @localteams.each { |team| team[:thr].join }
-            @taskmaster.join
+            #@taskmaster.join
 
         end #def run
 
