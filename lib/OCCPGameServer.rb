@@ -26,7 +26,12 @@ require "colorize"
 
 
 module OCCPGameServer
-  
+    #Challenge Run States
+    WAIT = 1
+    READY = 2
+    RUN = 3
+    STOP = 4
+
     include LibXML
 
     # Takes an instance configuration file and returns an instance of the core application. 
@@ -274,12 +279,12 @@ module OCCPGameServer
                     
                 }
                 menu.choice(:"Start"){
-                    main_runner.set_state(Main::RUN)
-                    #main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> Main::RUN}})
+                    #main_runner.set_state(Main::RUN)
+                    main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
                 }
                 menu.choice(:"Pause"){
-                    main_runner.set_state(Main::WAIT)
-                    #main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> Main::WAIT}})
+                    #main_runner.set_state(Main::WAIT)
+                    main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
                 }
                 menu.choice(:"Clear Screen") {
                     system("clear")

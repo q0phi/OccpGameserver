@@ -5,13 +5,6 @@ module OCCPGameServer
         attr_accessor :gameclock, :networkid, :scenarioname, :INBOX, :eventRunQueue
         attr_accessor :STATE, :db
 
-        #Challenge Run States
-        WAIT = 1
-        READY = 2
-        RUN = 3
-        STOP = 4
-
-
         def initialize
             @events = {}
             @hosts = Array.new
@@ -66,22 +59,25 @@ module OCCPGameServer
         end
 
         def set_state(state)
-
+            
             case state
                 when WAIT
                     if @STATE == RUN
                         @teams.each { |team|
-                            team.set_state(state)
-                    }
+                            team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
+                        }
+                        @gameclock.pause
                     end
                 when RUN
+                    @gameclock.resume
                     @teams.each { |team|
-                            team.set_state(state)
+                            team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
+                            #team.set_state(state)
                     }
             end
-
-
+            
             @STATE = state
+
         end
         def get_state()
             return @STATE
@@ -132,7 +128,8 @@ module OCCPGameServer
                 when 'CONSOLE'
                     #Dump Messages to the Screen and into the logfile
                   #  puts message.fromid.to_s.yellow + " " + message.msg.to_s
-                    $log.info(message.fromid.to_s + ": " + message.msg.to_s)
+                    from = message.fromid.to_s
+                    $log.info(from + ": " + message.msg.to_s)
 
                 when 'SCORE'
                     #We are receiving a score hash that should be added to the appropriate score group
