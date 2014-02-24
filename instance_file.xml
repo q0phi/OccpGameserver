@@ -157,7 +157,7 @@
                 <endtime format="seconds" time="9999999" />
                 <!-- Possible rates include sec|min|hour;
                      drift [0.0 - 1.0] create semi-random event executions -->
-                <rate scale="sec" value="5" />
+                <rate scale="sec" value="1" />
                 <drift value="0.0" />
                 <!-- Submit scores to the identified groups -->
                 <score-atomic score-group="group1" points="5" />
@@ -253,7 +253,7 @@
         <!-- Parent block for events in this teams event list -->
         <team-event-list>
             <team-event>
-                <command value="ping -c 1 127.0.0.1" />
+                <command value="ping -c 1 131.128.81.80" />
                 <event-name name="Ping" />
                 <event-id id="" />
                 <!-- The name of a named handler in the <event-handlers> list to dispatch this event to -->
@@ -267,7 +267,7 @@
                 <rate scale="min" value="15" />
                 <drift value="0.0" />
                 <!-- Submit scores to the identified groups -->
-                <score-atomic score-group="group1" points="5" />
+                <score-atomic when="fail" score-group="group1" points="5" />
                 <score-atomic score-group="group2" points="-3" />
                 <!-- Event specific parameters -->
                 <parameters>

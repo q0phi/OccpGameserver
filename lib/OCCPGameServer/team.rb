@@ -78,22 +78,61 @@ class Team #Really the TeamScheduler
                         @singletonThread.wakeup
                     end
                 end
+            when STOP
+                #Kill the PERIODIC Loops
+                @periodThread.each{|evThread|
+                    if evThread.alive?
+                            evThread.run
+                        end
+                }
+                if @singletonThread.alive?
+                    @singletonThread.run
+                end
+                exit_cleanup()
+
         end
 
     end
 
+    #Cleanup any residuals and wait for related threads to shutdown nicely
+    def exit_cleanup()
+
+        periodRelease = false
+        singleRelease = false
+
+        while not periodRelease and singleRelease
+        # Poll each thread until there all dead
+            if @periodThread.empty?
+                periodRelease = true
+            end
+            
+            @periodThread.delete_if{|evThread|
+                not evThread.alive?
+            }
+
+            if not @singletonThread.alive?
+                singleRelease = true
+            end
+        end
+
+        $log.debug 'Thread cleanup complete'
+        Thread.exit
+    end
+
+
     def run(app_core)
       
-        app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>'Executing...'})
-                   
+        #app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>'Executing...'})
+        Log4r::NDC.push(@teamname + ':')
+        $log.info('Executing...')
+
         sort1 = Time.now
         #Sort into the order that they should be popped into the @eventRunQueue
         @singletonList.sort!{|aEv,bEv| aEv.starttime <=> bEv.starttime }
         sorttime = Time.now - sort1
 
-        app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Total sort time for #{@singletonList.size.to_s} events is #{sorttime}."})
-        app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Number of periodic events is #{@periodicList.count.to_s} events."})
-        app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>'READY'})
+        $log.debug "Total sort time for #{@singletonList.size.to_s} events is #{sorttime}."
+        $log.debug "Number of periodic events is #{@periodicList.count.to_s} events."
        
 
         #Launch a separate thread for each of the periodically scheduled events.
@@ -101,6 +140,15 @@ class Team #Really the TeamScheduler
             #next
             @periodThread << Thread.new {
           
+                from = @teamname
+                if @teamname == 'Red Team'
+                    from = @teamname.red
+                elsif @teamname == 'Blue Team'
+                    from = @teamname.light_cyan
+                end
+
+                Log4r::NDC.push(from + ':')
+
                 inSleepCycle = false
                 sleepFor = 0
 
@@ -155,16 +203,7 @@ class Team #Really the TeamScheduler
                     msgtext = "PERIODIC ".green + evOne.name.to_s.light_cyan + " " +
                         clock.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
                     
-                    from = @teamname
-                    if @teamname == 'Red Team'
-                        from = @teamname.red
-                    elsif @teamname == 'Blue Team'
-                        from = @teamname.blue
-                    end
-                    
-                    $log.info(from + ": " + msgtext)
-                    #app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
-                    
+                    $log.debug msgtext
 
                     #Calculate the amount of time to sleep
                     if evOne.freqscale === 'sec' 
@@ -234,18 +273,20 @@ class Team #Really the TeamScheduler
                     
                     #    app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
                 else
-                    msgtext = "Finished Running All Singleton Events at: ".light_red + app_core.gameclock.gametime.to_s.green
-                    app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
 
+                    $log.info "Finished Running All Singleton Events at: ".light_red + app_core.gameclock.gametime.to_s.green
                     break
+
                 end
                           
-                #Grab the next event
+                #Grab the next single event
                 evOne = @singletonList.shift
 
             end
         }
 
+        $log.info 'READY'
+        
         #TEAM run Loop
         while message = @INBOX.pop do
             case message.signal                
@@ -271,7 +312,7 @@ class Team #Really the TeamScheduler
         end #Message Poll End
 
         @periodThread.join
-        app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>"Finished Executing."})
+        $log.debug "Finished executing, thread terminating"
 
     end #Run End
 end #Class End

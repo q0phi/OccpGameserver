@@ -24,7 +24,6 @@ require 'sqlite3'
 require "highline"
 require "colorize"
 
-
 module OCCPGameServer
     #Challenge Run States
     WAIT = 1
@@ -182,8 +181,14 @@ module OCCPGameServer
         
         opt.on("-s","--database filename", "game record database") do |datafile|
             filename = "gamedata.db" #-" + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
+            
             if File.directory?(datafile)
-                options[:datafile] = File.join(datafile,filename)
+                fp = File.join(datafile,filename)
+                if File.exists?(fp)
+                    File.delete(fp)
+                end
+                options[:datafile] = fp
+
             else    
                 options[:datafile] = datafile
             end
@@ -198,12 +203,16 @@ module OCCPGameServer
     opt_parser.parse!
 
 
+
     #Setup default logging or use given log file name
-    $log = Log4r::Logger.new('GameInstanceLog')
-   
+    $log = Log4r::Logger.new('occp::gameserver::instancelog')
+  # $log.trace = true
     fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => options[:logfile]})
-    fileoutputter.formatter = Log4r::PatternFormatter.new(:pattern => "[%l] %d : %m")
-    $log.outputters = fileoutputter
+    fileoutputter.formatter = Log4r::PatternFormatter.new(:pattern => "[%l] %d %x %m")
+    
+    Log4r::NDC.push('OCCP GS:')
+    
+    $log.outputters = [fileoutputter]
     
     $log.info("Begining new GameLog")
 
@@ -253,27 +262,15 @@ module OCCPGameServer
         # Handle user tty
         exitable = false
         while not exitable do
-            '''
-            puts "Enter Q to exit or S for status"
-            u_input = gets.chomp
-
-            case u_input.upcase
-            when "Q"
-                main.exit
-                break
-            when "S"
-                puts main.status
-            end
-            '''
             hlMenu.choose do |menu|
                 menu.header = "Select from the list below"
                 menu.choice(:Status) {
-                    #currentStatus = main_runner.get_state()
+                    currentStatus = main_runner.STATE
 
                     case currentStatus
-                        when Main::RUN
+                        when RUN
                         hlMenu.say("All Teams are Running")
-                        when Main::WAIT
+                        when WAIT
                             hlMenu.say("Teams are Paused")
                         end
                     
@@ -289,10 +286,12 @@ module OCCPGameServer
                 menu.choice(:"Clear Screen") {
                     system("clear")
                 }
-                menu.choice(:Quit) { 
-                    hlMenu.say("Exiting...")
-                    main.exit
-                    exitable = true
+                menu.choice(:Quit) {
+                    #if hlMenu.agree("Confirm exit? ", true)
+                        hlMenu.say("Exiting...")
+                        main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
+                        exitable = true
+                    #end
                 }
                 menu.prompt = "Enter Selection: "
             end
@@ -304,8 +303,10 @@ module OCCPGameServer
         #Cleanup and Close Files
         $db.close
 
+        $log.info "GameServer shutdown complete"
+
     else
-        $log.info("GameServer slave mode")
+        $log.info "GameServer slave mode"
 
         #Open listening socket and wait...
 

@@ -49,6 +49,8 @@ class ExecHandler < Handler
     end
 
     def run(event, app_core)
+
+        Log4r::NDC.push('ExecHandler:')
         
         begin
             # run the provided command
@@ -56,7 +58,8 @@ class ExecHandler < Handler
 
         rescue Exception => e
                 msg = "Event failed to run: #{e.message}".red
-                app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>msg})
+                $log.warn msg
+                #app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>msg})
         end
         
         #Log message that the event ran
@@ -64,8 +67,7 @@ class ExecHandler < Handler
         
         if( success === true )
 
-            #Console
-            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>'RECORD SCORE GOOD'.green})
+            $log.debug "#{event.name} #{event.command} " + "SUCCESS".green
             
             #Database
             app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
@@ -80,11 +82,9 @@ class ExecHandler < Handler
         elsif( success === nil )
                 msg = "Command failed to run: " + event.command
                 $log.error(msg)
-                #app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>msg})
 
         else
-            #Console
-            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>'RECORD SCORE BAD'.red})
+            $log.debug "#{event.name} #{event.command} " + "FAILED".red
             
             #Database
             app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
@@ -97,6 +97,7 @@ class ExecHandler < Handler
             }
         end
 
+        Log4r::NDC.pop
 
     end
 

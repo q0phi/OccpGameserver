@@ -63,6 +63,7 @@ module OCCPGameServer
             case state
                 when WAIT
                     if @STATE == RUN
+                        $log.info 'Instance PAUSE Triggered'.yellow
                         @teams.each { |team|
                             team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
                         }
@@ -74,6 +75,14 @@ module OCCPGameServer
                             team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
                             #team.set_state(state)
                     }
+                    $log.info 'Instance RESUME Triggered'.yellow
+                when STOP
+                    #Clean everything up and signal all process to stop
+                    @teams.each { |team|
+                            team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
+                    }
+                    exit_cleanup()
+
             end
             
             @STATE = state
@@ -82,34 +91,31 @@ module OCCPGameServer
         def get_state()
             return @STATE
         end
-        
-        # Entry point for the post-setup code
-        def run ()
+        #Cleanup any residuals and wait for related threads to shutdown nicely
+        def exit_cleanup()
 
-            #create a taskmaster that will pop events off the main queue and spin them into worker threads
-            '''
-                @taskmaster = Thread.new{ 
-            
-                workerthreads = []
-                
-                while true do
-                
-                    if @STATE === WAIT
-                       sleep 1
-                       next
-                    end
+            threadRelease = false
 
-                    nextevent = @eventRunQueue.pop
-
-                    workerthreads << Thread.new{
-                        #do something with each nextevent
-                        puts nextevent.name.to_s.blue
-                    }
+            while not threadRelease
+                # Poll each thread until there all dead
+                if @localteams.empty?
+                    threadRelease = true
                 end
 
-                workerthreads.each { |wthread| wthread.join }
-            }
-            '''
+                @localteams.delete_if{|evThread|
+                    not evThread[:thr].alive?
+                }
+
+            end
+
+            $log.debug 'Team thread cleanup complete'
+            Thread.exit
+        end
+ 
+        # Entry point for the post-setup code
+        def run ()
+            Log4r::NDC.push('Main:')
+
             #Launch each teams scheduler
             @teams.each { |team|
                 if team.teamhost == "localhost" 
@@ -139,7 +145,7 @@ module OCCPGameServer
                     eventuid = message.msg[:eventuid]
 
                     $db.execute("INSERT INTO score VALUES (?,?,?,?)", [timeT, eventuid, group, value])
-                    $log.info("Score recorded in db.score")
+                    $log.debug("Score recorded in db.score")
 
                
                 when 'EVENTLOG'
@@ -153,7 +159,7 @@ module OCCPGameServer
                     ]
 
                     $db.execute("INSERT INTO event VALUES (?,?,?,?,?,?);", tblArray);
-                    $log.info("Event Recorded in db.event")
+                    $log.debug("Event Recorded in db.event")
 
                 when 'COMMAND'
 
