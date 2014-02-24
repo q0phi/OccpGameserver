@@ -222,6 +222,15 @@ class Team #Really the TeamScheduler
         ### Sparse Event Run Thread ###
         @singletonThread = Thread.new {
 
+            from = @teamname
+            if @teamname == 'Red Team'
+                from = @teamname.red
+            elsif @teamname == 'Blue Team'
+                from = @teamname.light_cyan
+            end
+
+            Log4r::NDC.push(from + ':')
+            
             inSleepCycle = false
             sleeptime = 0
 
@@ -260,16 +269,10 @@ class Team #Really the TeamScheduler
                     event_handler = app_core.get_handler(evOne.eventhandler)
                     this_event = event_handler.run(evOne, app_core)
                    
-                    from = @teamname
-                    if @teamname == 'Red Team'
-                        from = @teamname.red
-                    elsif @teamname == 'Blue Team'
-                        from = @teamname.blue
-                    end
                     
                     msgtext = evOne.name.to_s.light_cyan + " " + clock.round(4).to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
                 
-                    $log.info(from + ": " + msgtext)
+                    $log.debug msgtext
                     
                     #    app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
                 else
