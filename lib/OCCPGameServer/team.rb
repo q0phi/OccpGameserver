@@ -33,6 +33,8 @@ class Team #Really the TeamScheduler
         @singletonList = Array.new
         @periodicList = Array.new
 
+        @eventGroup = ThreadGroup.new
+
     end
 
     # Push a new event into our list
@@ -176,6 +178,7 @@ class Team #Really the TeamScheduler
                             sleep(startSleep)
                         end
 
+                        #Check if last sleep cycle was interupted and continue it if needed
                         if sleepFor > 0
                             preClock = app_core.gameclock.gametime
                             sleep(sleepFor)
@@ -186,7 +189,7 @@ class Team #Really the TeamScheduler
                         #If interupted from sleep in order to pause, stop quickly
                         if @STATE === WAIT
                             Thread.stop
-                            #When we wakeup restart the loop
+                            #When we wakeup restart the sleep-loop
                             next
                         end
                     end
@@ -196,13 +199,30 @@ class Team #Really the TeamScheduler
                         break
                     end
 
-                    #Run the event through its handler
-                    this_event = event_handler.run(evOne, app_core)
+                    #For now an event and it's handler code are going to be assumed to run atomically from the scheduler
+                    #IE once the handler has launched it can do whatever it wants until it returns
+                    #If the GS is paused while it is running tough beans for us.
 
-                    msgtext = "PERIODIC ".green + evOne.name.to_s.light_cyan + " " +
-                        clock.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
+                    stackLocal = Log4r::NDC.clone_stack()
                     
-                    $log.debug msgtext
+                    eventLocal = Thread.new do
+
+                        launchAt = app_core.gameclock.gametime
+
+                        Log4r::NDC.set_max_depth(72)
+                        Log4r::NDC.inherit(stackLocal)
+
+                        #Run the event through its handler
+                        this_event = event_handler.run(evOne, app_core)
+
+                        msgtext = "PERIODIC ".green + evOne.name.to_s.light_magenta + " " +
+                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
+                        
+                        $log.debug msgtext
+
+                    end
+
+                    @eventGroup.add(eventLocal)
 
                     sleepFor = evOne.period
                    
@@ -286,6 +306,11 @@ class Team #Really the TeamScheduler
         while message = @INBOX.pop do
             case message.signal                
             
+            when 'STATUS'
+                @eventGroup.list.each{|eventThread|
+                    $log.debug(eventThread.status)
+                }
+
             when 'COMMAND'
 
                 command = message.msg

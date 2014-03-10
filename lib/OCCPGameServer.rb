@@ -276,6 +276,7 @@ module OCCPGameServer
                         when WAIT
                             hlMenu.say("Teams are Paused")
                     end
+                    main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
                     
                 }
                 menu.choice(:"Start"){

@@ -264,7 +264,7 @@
                 <endtime format="seconds" time="9999999" />
                 <!-- Possible rates include sec|min|hour;
                      drift [0.0 - 1.0] create semi-random event executions -->
-                <rate scale="min" value="15" />
+                <rate scale="min" value="30" />
                 <drift value="0.0" />
                 <!-- Submit scores to the identified groups -->
                 <score-atomic when="fail" score-group="group1" points="5" />

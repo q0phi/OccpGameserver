@@ -170,6 +170,10 @@ module OCCPGameServer
                         set_state(command[:state])
                     end
 
+                when 'STATUS'
+                    @teams.each { |team|
+                            team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'STATUS', :msg=>{}})
+                    }
 
                 when 'DIE'
                     break
