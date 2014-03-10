@@ -149,8 +149,10 @@ class Team #Really the TeamScheduler
 
                 Log4r::NDC.push(from + ':')
 
-                inSleepCycle = false
                 sleepFor = 0
+                    
+                # Get the handler from the app_core and launch the event
+                event_handler = app_core.get_handler(evOne.eventhandler)
 
                 if @STATE === WAIT
                     Thread.stop
@@ -195,9 +197,6 @@ class Team #Really the TeamScheduler
                     end
 
                     #Run the event through its handler
-                    
-                    # Get the handler from the app_core and launch the event
-                    event_handler = app_core.get_handler(evOne.eventhandler)
                     this_event = event_handler.run(evOne, app_core)
 
                     msgtext = "PERIODIC ".green + evOne.name.to_s.light_cyan + " " +
@@ -205,15 +204,8 @@ class Team #Really the TeamScheduler
                     
                     $log.debug msgtext
 
-                    #Calculate the amount of time to sleep
-                    if evOne.freqscale === 'sec' 
-                        sleepFor = 1/evOne.frequency
-                    elsif evOne.freqscale === 'min'
-                        sleepFor = 60/evOne.frequency
-                    elsif evOne.freqscale === 'hour'
-                        sleepFor = 3600/evOne.frequency
-                    end
-                
+                    sleepFor = evOne.period
+                   
                 end # end EventThread while loop            
             }#end periodThread
         } #end periodicList
