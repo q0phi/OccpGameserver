@@ -59,7 +59,6 @@ class ExecHandler < Handler
         rescue Exception => e
                 msg = "Event failed to run: #{e.message}".red
                 $log.warn msg
-                #app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'CONSOLE', :msg=>msg})
         end
         
         #Log message that the event ran
@@ -68,8 +67,6 @@ class ExecHandler < Handler
         if( success === true )
 
             $log.debug "#{event.name} #{event.command} " + "SUCCESS".green
-            
-            #Database
             app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
             
             #Score Database
@@ -85,8 +82,6 @@ class ExecHandler < Handler
 
         else
             $log.debug "#{event.name} #{event.command} " + "FAILED".red
-            
-            #Database
             app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
             
             #Score Database

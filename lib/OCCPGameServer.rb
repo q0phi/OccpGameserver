@@ -1,5 +1,9 @@
 $LOAD_PATH.unshift(File.dirname(__FILE__))
-#Dir[File.dirname(__FILE__) + '/lib/*.rb'].each {|file| require file }
+
+#Dir[File.dirname(__FILE__) + '/*.rb'].each {|file| require file }
+#Dir["#{File.dirname(__FILE__)}/**/*.rb"].each { |f| require f }
+#Dir["#{File.dirname(__FILE__)}/OCCPGameServer/**/*.rb"].each { |f| require f }
+#Gem.find_files("OCCPGameServer/**/*.rb").each { |path| require path }
 
 require "OCCPGameServer/version"
 require "OCCPGameServer/main"
@@ -14,7 +18,6 @@ require "OCCPGameServer/Events/execevent"
 require "OCCPGameServer/Events/metasploitevent"
 
 require "GameServerConfig"
-
 require "log4r"
 require "optparse"
 require "libxml"
@@ -184,7 +187,7 @@ module OCCPGameServer
             
             if File.directory?(datafile)
                 fp = File.join(datafile,filename)
-                if File.exists?(fp)
+                if File.exist?(fp)
                     File.delete(fp)
                 end
                 options[:datafile] = fp
@@ -272,7 +275,7 @@ module OCCPGameServer
                         hlMenu.say("All Teams are Running")
                         when WAIT
                             hlMenu.say("Teams are Paused")
-                        end
+                    end
                     
                 }
                 menu.choice(:"Start"){
