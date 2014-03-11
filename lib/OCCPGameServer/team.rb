@@ -93,41 +93,9 @@ class Team #Really the TeamScheduler
                 if @singletonThread.alive?
                     @singletonThread.run
                 end
-                #exit_cleanup()
 
         end
 
-    end
-
-    #Cleanup any residuals and wait for related threads to shutdown nicely
-    def exit_cleanup()
-
-        periodRelease = false
-        singleRelease = false
-        eventRelease = false
-
-        while not periodRelease or not singleRelease or not eventRelease
-        # Poll each thread until there all dead
-            
-            @periodThread.each{|evThread|
-                
-                
-            }
-
-            if not @singletonThread.alive?
-                singleRelease = true
-            end
-
-            if @eventGroup.list.empty?
-                eventRelease = true
-            end
-
-            $log.debug('yielding for period: ' + periodRelease.to_s + ' single: ' + singleRelease.to_s + ' events: ' + eventRelease.to_s)
-            Thread.pass
-        end
-
-            $log.debug('exiting cleanup call')
-        #Thread.exit
     end
 
 
