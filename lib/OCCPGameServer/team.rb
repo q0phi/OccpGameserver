@@ -35,6 +35,8 @@ class Team #Really the TeamScheduler
 
         @eventGroup = ThreadGroup.new
 
+        @shuttingdown = false
+
     end
 
     # Push a new event into our list
@@ -81,6 +83,7 @@ class Team #Really the TeamScheduler
                     end
                 end
             when STOP
+                @shuttingdown = true
                 #Kill the PERIODIC Loops
                 @periodThread.each{|evThread|
                     if evThread.alive?
@@ -90,7 +93,7 @@ class Team #Really the TeamScheduler
                 if @singletonThread.alive?
                     @singletonThread.run
                 end
-                exit_cleanup()
+                #exit_cleanup()
 
         end
 
@@ -101,31 +104,47 @@ class Team #Really the TeamScheduler
 
         periodRelease = false
         singleRelease = false
+        eventRelease = false
 
-        while not periodRelease and singleRelease
+        while not periodRelease or not singleRelease or not eventRelease
         # Poll each thread until there all dead
-            if @periodThread.empty?
-                periodRelease = true
-            end
             
-            @periodThread.delete_if{|evThread|
-                not evThread.alive?
+            @periodThread.each{|evThread|
+                
+                
             }
 
             if not @singletonThread.alive?
                 singleRelease = true
             end
+
+            if @eventGroup.list.empty?
+                eventRelease = true
+            end
+
+            $log.debug('yielding for period: ' + periodRelease.to_s + ' single: ' + singleRelease.to_s + ' events: ' + eventRelease.to_s)
+            Thread.pass
         end
 
-        $log.debug 'Thread cleanup complete'
-        Thread.exit
+            $log.debug('exiting cleanup call')
+        #Thread.exit
     end
 
 
     def run(app_core)
       
-        #app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>'Executing...'})
-        Log4r::NDC.push(@teamname + ':')
+        Log4r::NDC.set_max_depth(72)
+        
+        from = @teamname
+        if @teamname == 'Red Team'
+            from = @teamname.red
+        elsif @teamname == 'Blue Team'
+            from = @teamname.light_cyan
+        end
+
+        Log4r::NDC.push(from + ':')
+        stackLocal = Log4r::NDC.clone_stack()
+        
         $log.info('Executing...')
 
         sort1 = Time.now
@@ -138,19 +157,16 @@ class Team #Really the TeamScheduler
        
 
         #Launch a separate thread for each of the periodically scheduled events.
-        @periodicList.each {|evOne|
+        @periodicList.each {|event|
             #next
             @periodThread << Thread.new {
-          
-                from = @teamname
-                if @teamname == 'Red Team'
-                    from = @teamname.red
-                elsif @teamname == 'Blue Team'
-                    from = @teamname.light_cyan
-                end
-
-                Log4r::NDC.push(from + ':')
-
+        
+                Log4r::NDC.set_max_depth(72)
+                Log4r::NDC.inherit(stackLocal)
+                
+                evOne = event.clone
+                $log.debug("Creating periodic thread scheduler for: #{evOne.name} #{evOne.eventuid}")
+                threaduid = evOne.eventuid
                 sleepFor = 0
                     
                 # Get the handler from the app_core and launch the event
@@ -159,8 +175,8 @@ class Team #Really the TeamScheduler
                 if @STATE === WAIT
                     Thread.stop
                 end
-                # EventThread Run Loop
-                while true do
+                # Event Scheduler Thread Run Loop
+                while not @shuttingdown do
                     
                     clock = app_core.gameclock.gametime
 
@@ -186,11 +202,18 @@ class Team #Really the TeamScheduler
                             sleepFor = sleepFor - (clock - preClock)
                         end
 
+                        if sleepFor > 0 
+                            $log.debug("Woke up #{evOne.name} #{evOne.eventuid}")
+                        end
                         #If interupted from sleep in order to pause, stop quickly
                         if @STATE === WAIT
                             Thread.stop
                             #When we wakeup restart the sleep-loop
                             next
+                        elsif @STATE === STOP
+                            break
+                            $log.debug("CRUSHING EXIT".red)
+                            #Thread.exit
                         end
                     end
                     
@@ -208,8 +231,8 @@ class Team #Really the TeamScheduler
                     eventLocal = Thread.new do
 
                         launchAt = app_core.gameclock.gametime
-
                         Log4r::NDC.set_max_depth(72)
+
                         Log4r::NDC.inherit(stackLocal)
 
                         #Run the event through its handler
@@ -226,79 +249,98 @@ class Team #Really the TeamScheduler
 
                     sleepFor = evOne.period
                    
-                end # end EventThread while loop            
+                end # end Event Scheduler Thread Loop
+                $log.debug("Exiting scheduler loop for: #{evOne.name} #{evOne.eventuid}".red)
             }#end periodThread
         } #end periodicList
 
-
+        singles = 0
         ### Sparse Event Run Thread ###
         @singletonThread = Thread.new {
 
-            from = @teamname
-            if @teamname == 'Red Team'
-                from = @teamname.red
-            elsif @teamname == 'Blue Team'
-                from = @teamname.light_cyan
-            end
-
-            Log4r::NDC.push(from + ':')
+            Log4r::NDC.set_max_depth(72)
+            Log4r::NDC.inherit(stackLocal)
             
-            inSleepCycle = false
             sleeptime = 0
+           
+            $log.debug('Length of singleton list: ' + @singletonList.length.to_s)
+
+            #Grab the first event to be run
+            nextEvent = @singletonList.shift
+            singles += 1
+            $log.debug('First event popped: '.yellow + singles.to_s)
 
             if @STATE === WAIT
                 Thread.stop
             end
 
-            #Grab the first event to be run
-            evOne = @singletonList.shift
-
             #Signal ready and wait for start signal
-            while true do
+            while not @shuttingdown do
                 
-                if !evOne.nil?
+                if nextEvent
+
+                    $log.debug('Event loaded: ' + nextEvent.name + ' ' + nextEvent.eventuid)
 
                     clock = app_core.gameclock.gametime
-                    if evOne.starttime > clock
-                        sleeptime = evOne.starttime - clock
+                    if nextEvent.starttime > clock
+                        sleeptime = nextEvent.starttime - clock
                         sleep sleeptime
                     end  
                     
                     #If interupted from sleep in order to pause, stop quickly
                     if @STATE === WAIT
-                        inSleepCycle = true
                         Thread.stop
-                        #When we wakeup restart the loop
+                        #When we wakeup restart the loop to check the start time
                         next
                     elsif @STATE === STOP
                         break
                     end
-
-                    
-                    levent = evOne
-                    
-                    # Get the handler from the app_core and launch the event
-                    event_handler = app_core.get_handler(evOne.eventhandler)
-                    this_event = event_handler.run(evOne, app_core)
                    
+                    evOne = nextEvent.clone
                     
-                    msgtext = evOne.name.to_s.light_cyan + " " + clock.round(4).to_s.yellow + " " + evOne.starttime.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
-                
-                    $log.debug msgtext
-                    
-                    #    app_core.INBOX << GMessage.new({:fromid=>@teamname,:signal=>'CONSOLE', :msg=>msgtext})
+                    eventLocal = Thread.new do
+                        
+                        Log4r::NDC.set_max_depth(72)
+                        Log4r::NDC.inherit(stackLocal)
+                        
+                        launchAt = app_core.gameclock.gametime
+
+                        if evOne.nil?
+                            $log.debug("How did I get here at #{launchAt.to_s}")
+                            return
+                        end
+
+                        $log.debug("Launching #{evOne.name} #{evOne.eventuid}")
+                        
+                        # Get the handler from the app_core and launch the event
+                        event_handler = app_core.get_handler(evOne.eventhandler)
+                        this_event = event_handler.run(evOne, app_core)
+
+                        msgtext = evOne.name.to_s.light_magenta + " " +
+                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
+                        
+                        $log.debug msgtext
+
+                    end
+
+                    @eventGroup.add(eventLocal)
+
                 else
 
-                    $log.info "Finished Running All Singleton Events at: ".light_red + app_core.gameclock.gametime.to_s.green
+                    $log.info "Finished Running All Singleton Events at: ".light_green + app_core.gameclock.gametime.to_s.green
                     break
 
                 end
                           
                 #Grab the next single event
-                evOne = @singletonList.shift
+                nextEvent = @singletonList.shift
+                singles += 1
+                $log.debug('Num Pop\'d: '.yellow + singles.to_s + ' At: '.yellow + app_core.gameclock.gametime.to_s + ' NIL? '.yellow + nextEvent.nil?.to_s)
 
             end
-        }
+            
+            $log.debug('Exiting Singleton Thread')
+        }#End Singleton thread
 
         $log.info 'READY'
         
@@ -327,12 +369,21 @@ class Team #Really the TeamScheduler
                 break
             end
 
-
+            if @shuttingdown
+                break
+            end
 
         end #Message Poll End
 
-        @periodThread.join
-        $log.debug "Finished executing, thread terminating"
+        @periodThread.each {|thr|
+            thr.join
+        }
+        @eventGroup.list.each{|ev|
+            ev.join
+        }
+        @singletonThread.join
+
+        $log.debug "Finished executing, Team thread terminating".red
 
     end #Run End
 end #Class End

@@ -40,5 +40,10 @@ class MetasploitHandler < Handler
         return new_event
     end
 
+    def run(event, app_core)
+
+        return true
+    end
+
 end #end class
 end #end module
