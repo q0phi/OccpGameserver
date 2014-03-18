@@ -10,6 +10,7 @@ require "OCCPGameServer/main"
 require "OCCPGameServer/gameclock"
 require "OCCPGameServer/team"
 require "OCCPGameServer/gmessage"
+require "OCCPGameServer/score"
 require "OCCPGameServer/Handlers/handler"
 require "OCCPGameServer/Handlers/exechandler"
 require "OCCPGameServer/Handlers/metasploithandler"
@@ -75,7 +76,7 @@ module OCCPGameServer
             el_hash = el_hash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
 
             # Setup the team host in the MP registry 
-            puts "New Team Host: " + el_hash[:name]
+            $log.info "New Team Host: " + el_hash[:name]
 
             main_runner.add_host(el_hash)
         }
@@ -87,7 +88,7 @@ module OCCPGameServer
             el_hash = element.attributes.to_h
             el_hash = el_hash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
             
-            puts "Request Handler: " + el_hash[:"class-handler"]
+            $log.debug "Request Handler: " + el_hash[:"class-handler"]
           
             begin
                handler_class = OCCPGameServer.const_get(el_hash[:"class-handler"]).new(el_hash)
@@ -106,8 +107,7 @@ module OCCPGameServer
         # Load each team by parsing
         $log.info('Parsing Team Data...')
         doc.find('/occpchallenge/team').each { |teamxmlnode|
-            print "Parsing Team: " + teamxmlnode.attributes["name"] + " ... "
-            $stdout.flush
+            $log.debug "Parsing Team: " + teamxmlnode.attributes["name"] + " ... "
             begin
 
                 new_team = Team.new
@@ -152,7 +152,24 @@ module OCCPGameServer
 
         }
 
+        #Take care of scorekeeping
+        scoreKeeper = main_runner.scoreKeeper
+        
+        $log.info('Parsing Score Data...')
+        scoreblock = doc.find('/occpchallenge/scenario/score-labels').first
+        scoreblock.each_element { |label|
+            $log.debug "Parsing Score Label: " + label.to_s + " ... "
+            tempT = scoreKeeper.ScoreLabel.new(label.attributes["name"], label.attributes["select"], label.attributes["where"], label.attributes["calculation"] ) 
+            scoreKeeper.labels.push( tempT )
+        }
+        scoreblock = doc.find('/occpchallenge/scenario/score-names').first
+        scoreblock.each_element { |name|
+            $log.debug "Parsing Score Name: " + name.to_s + " ... "
+            tempT = scoreKeeper.ScoreName.new(name.attributes["name"], name.attributes["formula"], name.attributes["descr"])
+            scoreKeeper.names.push( tempT )
+        }
 
+        
         return main_runner
 
     end
@@ -278,6 +295,19 @@ module OCCPGameServer
                             hlMenu.say("Teams are Paused")
                     end
                     main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
+             
+             #       main_runner.scoreKeeper.labels.each{|label| 
+             #           puts 'found: '.red + (label.get_sql.nil? ? '' : label.get_sql )
+             #       }
+             #       
+             #       main_runner.scoreKeeper.names.each{|label| 
+             #           puts 'found: '.red + label.to_s
+             #       }
+
+                    main_runner.scoreKeeper.get_names.each{ |scoreName|
+                        hlMenu.say(scoreName + ': ' + main_runner.scoreKeeper.get_score(scoreName).to_s )
+                    }
+
                     
                 }
                 menu.choice(:"Start"){

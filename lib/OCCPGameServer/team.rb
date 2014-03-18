@@ -317,9 +317,9 @@ class Team #Really the TeamScheduler
             case message.signal                
             
             when 'STATUS'
-                @eventGroup.list.each{|eventThread|
-                    $log.debug(eventThread.status)
-                }
+                #@eventGroup.list.each{|eventThread|
+                #    $log.debug(eventThread.status)
+                #}
 
             when 'COMMAND'
 

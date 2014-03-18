@@ -43,31 +43,39 @@
             </user-interface>
         </user-interfaces>
         
-        <!-- Score groups allow certain events to be grouped together for score calculation -->
-        <score-groups>
-            <score-group name="group1" />
-            <score-group name="group2" />
-            <score-group name="group3" />
-            <score-group name="group4" />
-            <score-group name="group5" />
-        </score-groups>
-        
+        <!-- Score groups labels allow certain events to be grouped together for score calculation -->
+        <!--  -->
+        <score-labels>
+            <score-label name="group1" select="SUM(value)" where="groupname='group1' AND time > (time('now') - 30)"/>
+            <score-label name="group2" calculation="SELECT SUM(value) FROM SCORE WHERE groupname='group2' AND time > (time('now') - 300)"/>
+            <score-label name="group3" />
+            <score-label name="group4" calculation='SELECT SUM(value) FROM SCORE WHERE groupname="group4"'/>
+            <score-label name="group5" /> 
+        </score-labels>
+
+        <score-names>
+                <!-- score names are treated as ERb templates; use score labels as variables in calculation-->
+                <score-name name="red-team" descr="Red Team" formula="group1 - group2 + group3" />
+                <score-name name="blue-team" descr="Blue Team" formula="group4 + group5 - group3" />
+                <score-name name="service-level" descr="Service Level" formula="group1 + group2 + group5" />
+        </score-names>
+
         <!-- Scoreboard show a particular calculation of a group of scores -->
         <scoreboards>
             <scoreboard name="moderator-board" update-rate="live">
-                <score name="Red Team">{$group1 + $group2 + $group3}</score>
-                <score name="Blue Team">{$group4 + $group5 - $group3}</score>
-                <score name="Service Level">{$group1 + $group2 + $group5}</score>
+                <score-name name="red-team" />
+                <score-name name="blue-team" />
+                <score-name name="service-level" />
             </scoreboard>
             <scoreboard name="spectator-board" update-rate="live">
-                <score name="Red Team">{$group1 + $group2 + $group3}</score>
-                <score name="Blue Team">{$group4 + $group5 - $group3}</score>
-                <score name="Service Level">{$group1 + $group2 + $group5}</score>
+                <score-name name="red-team" />
+                <score-name name="blue-team" />
+                <score-name name="service-level" />
             </scoreboard>
             <scoreboard name="player-board" update-rate="1min">
-                <score name="Red Team">{$group1 + $group2 + $group3}</score>
-                <score name="Blue Team">{$group4 + $group5 - $group3}</score>
-                <score name="Service Level">{$group1 + $group2 + $group5}</score>
+                <score-name name="red-team" />
+                <score-name name="blue-team" />
+                <score-name name="service-level" />
             </scoreboard>
         </scoreboards>
 

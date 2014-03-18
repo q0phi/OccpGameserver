@@ -3,7 +3,7 @@ module OCCPGameServer
     class Main
 
         attr_accessor :gameclock, :networkid, :scenarioname, :INBOX, :eventRunQueue
-        attr_accessor :STATE, :db
+        attr_accessor :STATE, :db, :scoreKeeper
 
         def initialize
             @events = {}
@@ -22,6 +22,8 @@ module OCCPGameServer
             @handlers= Array.new
 
             @gameclock = GameClock.new
+
+            @scoreKeeper = Score.new
 
             @STATE = WAIT
         end
