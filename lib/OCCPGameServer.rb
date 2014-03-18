@@ -266,13 +266,14 @@ module OCCPGameServer
         exitable = false
         while not exitable do
             hlMenu.choose do |menu|
-                menu.header = "Select from the list below"
+                menu.header = "==================================\nSelect from the list below"
                 menu.choice(:Status) {
+                    hlMenu.say("==================================")
                     currentStatus = main_runner.STATE
-
+                    
                     case currentStatus
                         when RUN
-                        hlMenu.say("All Teams are Running")
+                            hlMenu.say("All Teams are Running")
                         when WAIT
                             hlMenu.say("Teams are Paused")
                     end

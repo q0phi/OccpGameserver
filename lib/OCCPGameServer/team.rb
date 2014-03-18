@@ -87,8 +87,8 @@ class Team #Really the TeamScheduler
                 #Kill the PERIODIC Loops
                 @periodThread.each{|evThread|
                     if evThread.alive?
-                            evThread.run
-                        end
+                        evThread.run
+                    end
                 }
                 if @singletonThread.alive?
                     @singletonThread.run
@@ -134,7 +134,7 @@ class Team #Really the TeamScheduler
                 
                 evOne = event.clone
                 $log.debug("Creating periodic thread scheduler for: #{evOne.name} #{evOne.eventuid}")
-                threaduid = evOne.eventuid
+                #threaduid = evOne.eventuid
                 sleepFor = 0
                     
                 # Get the handler from the app_core and launch the event
@@ -180,7 +180,7 @@ class Team #Really the TeamScheduler
                             next
                         elsif @STATE === STOP
                             break
-                            $log.debug("CRUSHING EXIT".red)
+                            #$log.debug("CRUSHING EXIT".red)
                             #Thread.exit
                         end
                     end
