@@ -51,7 +51,7 @@ module OCCPGameServer
             $log.error('Instance File Error: Challenge name cannot be blank')
         else
             scenario_name = scenario_node.content
-            puts scenario_name
+            $log.info 'Scenario Name: ' + scenario_name
         end
 
         #Setup the main application
@@ -64,10 +64,10 @@ module OCCPGameServer
        
         main_runner.gameclock = GameClock.new
         main_runner.gameclock.set_gamelength(length_node["time"],length_node["format"])
-        puts "Game Length: " + main_runner.gameclock.gamelength.to_s
+        $log.info "Game Length: " + main_runner.gameclock.gamelength.to_s
 
         main_runner.networkid = doc.find('/occpchallenge/scenario/networkid').first["number"]
-        puts "Network ID: "+main_runner.networkid
+        $log.info "Network ID: " + main_runner.networkid
 
 
         #Register the team host locations (minimally localhost)
@@ -92,15 +92,13 @@ module OCCPGameServer
             $log.debug "Request Handler: " + el_hash[:"class-handler"]
           
             begin
-               handler_class = OCCPGameServer.const_get(el_hash[:"class-handler"]).new(el_hash)
-
-               # if !handler_class.nil? 
-                    main_runner.add_handler(handler_class)
-                #end
+                handler_class = OCCPGameServer.const_get(el_hash[:"class-handler"]).new(el_hash)
+                main_runner.add_handler(handler_class)
 
             rescue
-               error = "Warning Handler Not Found: " + el_hash[:"class-handler"]
+               error = "Handler Not Found: " + el_hash[:"class-handler"]
                $log.warn(error)
+
             end
            
         }
@@ -108,7 +106,7 @@ module OCCPGameServer
         # Load each team by parsing
         $log.info('Parsing Team Data...')
         doc.find('/occpchallenge/team').each { |teamxmlnode|
-            $log.debug "Parsing Team: " + teamxmlnode.attributes["name"] + " ... "
+            $log.debug "Parsing Team: " + teamxmlnode.attributes["name"] + "..."
             begin
 
                 new_team = Team.new
@@ -120,13 +118,15 @@ module OCCPGameServer
 
                 teamxmlnode.find('team-event-list').each{ |eventlist|
                     
-                    #Validate each event|
+                    #Validate each event
                     eventlist.find('team-event').each {|event|
                             
                         #First Identify the handler
-                        handler_name = event.find("handler").first.attributes["name"]
+                        handler_node = event.find("handler").first
+                        handler_name = handler_node.attributes["name"]
                        
                         event_handler = main_runner.get_handler(handler_name)
+                        raise ArgumentError, "Error found in file #{instancefile}: #{handler_node.line_num.to_s} - handler #{handler_name} not defined" if event_handler.nil?
 
                         this_event = event_handler.parse_event(event)
 
@@ -142,11 +142,11 @@ module OCCPGameServer
                 }
 
             rescue ArgumentError => e
-                $log.error(e.message)
-                puts e.message.red
+                $log.error(e.to_s.red)
+                puts e.to_s.red
                 exit(1)
             else
-                puts "done."
+                $log.debug "Parsing Team: " + teamxmlnode.attributes["name"] + "... Complete"
             end
 
             main_runner.add_team(new_team)
@@ -201,28 +201,28 @@ module OCCPGameServer
     end
     
     #Setup and parse command line parameters
-    options = {}
-    options[:logfile] = "gamelog.log"
-    options[:datafile] = "gamedata.db"# + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
+    $options = {}
+    $options[:logfile] = "gamelog.log"
+    $options[:datafile] = "gamedata.db"# + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
 
     opt_parser = OptionParser.new do |opt|
         opt.banner = "Usage: gameserver"
         opt.separator ""
         opt.separator "Commands"
         opt.separator ""
-        opt.separator "Options"
+        opt.separator "$options"
 
         opt.on("-l","--logfile filename", "create the logfile using the given name") do |logfile|
             filename = "gamelog.txt" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".txt"
             if File.directory?(logfile)
-                options[:logfile] = File.join(logfile,filename)
+                $options[:logfile] = File.join(logfile,filename)
             else    
-                options[:logfile] = logfile
+                $options[:logfile] = logfile
             end
         end
 
         opt.on("-f","--instance-file filename", "game configuration file") do |gamefile|
-            options[:gamefile] = File.expand_path( gamefile, Dir.getwd) # File.dirname(__FILE__))
+            $options[:gamefile] = File.expand_path( gamefile, Dir.getwd) # File.dirname(__FILE__))
         end
         
         opt.on("-s","--database filename", "game record database") do |datafile|
@@ -233,10 +233,10 @@ module OCCPGameServer
                 if File.exist?(fp)
                     File.delete(fp)
                 end
-                options[:datafile] = fp
+                $options[:datafile] = fp
 
             else    
-                options[:datafile] = datafile
+                $options[:datafile] = datafile
             end
 
         end
@@ -253,7 +253,7 @@ module OCCPGameServer
     #Setup default logging or use given log file name
     $log = Log4r::Logger.new('occp::gameserver::instancelog')
   # $log.trace = true
-    fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => options[:logfile]})
+    fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => $options[:logfile]})
     fileoutputter.formatter = Log4r::PatternFormatter.new(:pattern => "[%l] %d %x %m")
     
     Log4r::NDC.push('OCCP GS:')
@@ -263,17 +263,17 @@ module OCCPGameServer
     $log.info("Begining new GameLog")
 
     #Decide if this will be the master or a slave agent
-    if options[:gamefile] 
+    if $options[:gamefile] 
         $log.info("GameServer master mode")
 
         
         #Parse given instance file
-        $log.debug("Opening instance file located at: " + options[:gamefile])
+        $log.debug("Opening instance file located at: " + $options[:gamefile])
         
         #Create the database for this run
         begin
 
-            $db = SQLite3::Database.new(options[:datafile])
+            $db = SQLite3::Database.new($options[:datafile])
 
             #pre-populate the table structure
             dbschema = File.open('schema.sql', 'r')
@@ -294,7 +294,7 @@ module OCCPGameServer
         end
 
         # Process the instance file and get the app core class
-        main_runner = instance_file_parser(options[:gamefile])
+        main_runner = instance_file_parser($options[:gamefile])
 
         #Launch the main application
         main = Thread.new { main_runner.run }
@@ -325,11 +325,9 @@ module OCCPGameServer
              #       main_runner.scoreKeeper.labels.each{|label| 
              #           puts 'found: '.red + (label.get_sql.nil? ? '' : label.get_sql )
              #       }
-             #       
              #       main_runner.scoreKeeper.names.each{|label| 
              #           puts 'found: '.red + label.to_s
              #       }
-
              #       main_runner.scoreKeeper.get_labels.each{ |scoreName|
              #           puts scoreName
              #       }
@@ -365,6 +363,7 @@ module OCCPGameServer
         main.join
 
         #Cleanup and Close Files
+        
         $db.close
 
         $log.info "GameServer shutdown complete"

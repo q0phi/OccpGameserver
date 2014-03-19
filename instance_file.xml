@@ -151,7 +151,7 @@
                 <parameters>
                     <param name="command" value="ping -c 1 127.0.0.1" />
                 </parameters>
-                <command value="ping -c 1 127.0.0.1" />
+                <command value="ping -c 1 127.0.0.3" />
             </team-event>
             <team-event>
                 <command value="ping -c 1 127.0.0.3" />

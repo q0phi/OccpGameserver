@@ -47,13 +47,7 @@ module OCCPGameServer
 
         # Lookup a handler by name to get its information
         def get_handler(handle_name)
-            
-            @handlers.each {|handler|
-                if handler.name == handle_name
-                    return handler
-                end
-            }
-            return handle_name
+            return @handlers.find {|handler| handler.name == handle_name }
         end
         
         def get_handlers()
@@ -109,6 +103,8 @@ module OCCPGameServer
                 }
 
             end
+
+            @scoreKeeper.cleanup
 
             $log.debug 'Team thread cleanup complete'
             Thread.exit

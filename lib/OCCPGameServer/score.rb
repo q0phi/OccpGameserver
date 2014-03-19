@@ -79,5 +79,13 @@ module OCCPGameServer
             nil
         end
 
+        def cleanup
+
+            @labels.each{|label|
+                label.prepared_sql.close
+            }
+
+        end
+
     end #end Class
 end #End Module

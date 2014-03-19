@@ -34,15 +34,13 @@ class ExecHandler < Handler
 
         event.find('parameters/param').each { |param|
             new_event.attributes << { param.attributes["name"] => param.attributes["value"] }
-
         }
         
         program = event.find('command').first
         if not program.nil?
             new_event.command = program.attributes["value"]
         else
-            $log.error(event.to_s)
-            raise ArgumentError, "Exec Event: #{new_event.name} does not contain a command line parameter"
+            raise ArgumentError, "Error found in file #{$options[:gamefile]}:#{event.line_num.to_s} - Exec Event: #{new_event.name} does not contain a shell command"
         end
               
         return new_event
