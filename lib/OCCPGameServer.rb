@@ -42,6 +42,7 @@ module OCCPGameServer
         require 'securerandom'
 
         instance_parser = XML::Parser.file(instancefile)
+        XML.default_line_numbers = true
         doc = instance_parser.parse
 
         #Do something with challenge metadata
@@ -158,8 +159,33 @@ module OCCPGameServer
         $log.info('Parsing Score Data...')
         scoreblock = doc.find('/occpchallenge/scenario/score-labels').first
         scoreblock.each_element { |label|
-            $log.debug "Parsing Score Label: " + label.to_s + " ... "
-            tempT = scoreKeeper.ScoreLabel.new(label.attributes["name"], label.attributes["select"], label.attributes["where"], label.attributes["calculation"] ) 
+            
+            # Integrity checks
+            name = label.attributes["name"]; sql = label.attributes["sql"]
+
+            raise ArgumentError, 'Argument label-name cannot be blank' if name.nil? || name.empty?
+            
+            if sql.nil? || sql.empty?
+                sql = "SELECT SUM(value) FROM SCORE WHERE groupname='#{name}'"
+            end
+
+            begin
+                res = $db.prepare(sql)
+                num_cols = res.columns().count
+                
+                raise ArgumentError, "SQL statement returned #{num_cols} cols, expecting 1 column" if num_cols != 1
+
+            rescue SQLite3::SQLException, ArgumentError => e
+                msg = 'Error found in file '+ instancefile + ':' + label.line_num.to_s + ' - ' + e.to_s
+                puts msg.red
+                $log.error msg.red
+                exit(1)
+            end
+
+            
+            tempT = scoreKeeper.ScoreLabel.new(name, sql, res)
+                #Score::ScoreLabel.new(label.attributes["name"], label.attributes["sql"] ) 
+
             scoreKeeper.labels.push( tempT )
         }
         scoreblock = doc.find('/occpchallenge/scenario/score-names').first
@@ -196,7 +222,7 @@ module OCCPGameServer
         end
 
         opt.on("-f","--instance-file filename", "game configuration file") do |gamefile|
-            options[:gamefile] = gamefile
+            options[:gamefile] = File.expand_path( gamefile, Dir.getwd) # File.dirname(__FILE__))
         end
         
         opt.on("-s","--database filename", "game record database") do |datafile|
@@ -244,9 +270,6 @@ module OCCPGameServer
         #Parse given instance file
         $log.debug("Opening instance file located at: " + options[:gamefile])
         
-        # Process the instance file and get the app core class
-        main_runner = instance_file_parser(options[:gamefile])
-
         #Create the database for this run
         begin
 
@@ -269,6 +292,9 @@ module OCCPGameServer
             $log.error( e )
         
         end
+
+        # Process the instance file and get the app core class
+        main_runner = instance_file_parser(options[:gamefile])
 
         #Launch the main application
         main = Thread.new { main_runner.run }
@@ -304,6 +330,9 @@ module OCCPGameServer
              #           puts 'found: '.red + label.to_s
              #       }
 
+             #       main_runner.scoreKeeper.get_labels.each{ |scoreName|
+             #           puts scoreName
+             #       }
                     main_runner.scoreKeeper.get_names.each{ |scoreName|
                         hlMenu.say(scoreName + ': ' + main_runner.scoreKeeper.get_score(scoreName).to_s )
                     }

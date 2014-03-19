@@ -47,9 +47,9 @@
         <!--  -->
         <score-labels>
             <score-label name="group1" select="SUM(value)" where="groupname='group1' AND time > (time('now') - 30)"/>
-            <score-label name="group2" calculation="SELECT SUM(value) FROM SCORE WHERE groupname='group2' AND time > (time('now') - 300)"/>
+            <score-label name="group2" sql="SELECT SUM(value) FROM SCORE WHERE groupname='group2' AND time > (time('now') - 300)"/>
             <score-label name="group3" />
-            <score-label name="group4" calculation='SELECT SUM(value) FROM SCORE WHERE groupname="group4"'/>
+            <score-label name="group4" sql='SELECT SUM(value) FROM SCORE WHERE groupname="group4"'/>
             <score-label name="group5" /> 
         </score-labels>
 

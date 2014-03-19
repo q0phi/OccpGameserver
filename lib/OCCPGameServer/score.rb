@@ -6,7 +6,7 @@ module OCCPGameServer
         attr_accessor :labels, :names, :ScoreLabel, :ScoreName
         def initialize
 
-            @ScoreLabel = Struct.new(:name, :select, :where, :calculation) do
+            @ScoreLabel = Struct.new(:name, :raw_sql, :prepared_sql) do
 
                 def get_sql
                     sql = "SELECT SUM(value) FROM SCORE WHERE groupname='#{name}'"
@@ -56,12 +56,14 @@ module OCCPGameServer
             }
             if formula
                 #Get each component of the formula from their corresponding labels
-
-                #Convert the formula from a string into its component parts
                 $db.transaction { |selfs| 
                     @labels.each { |e| 
                         if formula.match( e[:name] )
-                            result = $db.get_first_value(e.get_sql)
+                            res = e.prepared_sql.execute!
+                            
+                            $log.warn("Score-label #{e[:name]} SQL definition returning more than 1 row".yellow) if res.length > 1
+                            
+                            result = res[0][0] # Row 0 Column 0
                             if result
                                 formula = formula.gsub(e[:name], result.to_s)
                             elsif
