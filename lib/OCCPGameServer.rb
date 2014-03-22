@@ -300,25 +300,25 @@ module OCCPGameServer
         main = Thread.new { main_runner.run }
     
         #Setup the menuing system
-        hlMenu = HighLine.new
-        hlMenu.page_at = :auto
+        highL = HighLine.new
+        highL.page_at = :auto
 
-
+        #system('clear')
 
         # Handle user tty
         exitable = false
         while not exitable do
-            hlMenu.choose do |menu|
+            highL.choose do |menu|
                 menu.header = "==================================\nSelect from the list below"
                 menu.choice(:Status) {
-                    hlMenu.say("==================================")
+                    highL.say("==================================")
                     currentStatus = main_runner.STATE
                     
                     case currentStatus
                         when RUN
-                            hlMenu.say("All Teams are Running")
+                            highL.say("All Teams are Running")
                         when WAIT
-                            hlMenu.say("Teams are Paused")
+                            highL.say("Teams are Paused")
                     end
                     main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
              
@@ -332,7 +332,7 @@ module OCCPGameServer
              #           puts scoreName
              #       }
                     main_runner.scoreKeeper.get_names.each{ |scoreName|
-                        hlMenu.say(scoreName + ': ' + main_runner.scoreKeeper.get_score(scoreName).to_s )
+                        highL.say(scoreName + ': ' + main_runner.scoreKeeper.get_score(scoreName).to_s )
                     }
 
                     
@@ -349,8 +349,8 @@ module OCCPGameServer
                     system("clear")
                 }
                 menu.choice(:Quit) {
-                    #if hlMenu.agree("Confirm exit? ", true)
-                        hlMenu.say("Exiting...")
+                    #if highL.agree("Confirm exit? ", true)
+                        highL.say("Exiting...")
                         main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
                         exitable = true
                     #end

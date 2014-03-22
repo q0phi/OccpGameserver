@@ -100,8 +100,6 @@ class Team #Really the TeamScheduler
 
 
     def run(app_core)
-      
-        Log4r::NDC.set_max_depth(72)
         
         from = @teamname
         if @teamname == 'Red Team'
@@ -110,6 +108,7 @@ class Team #Really the TeamScheduler
             from = @teamname.light_cyan
         end
 
+        Log4r::NDC.set_max_depth(72)
         Log4r::NDC.push(from + ':')
         stackLocal = Log4r::NDC.clone_stack()
         
@@ -130,7 +129,7 @@ class Team #Really the TeamScheduler
             @periodThread << Thread.new {
         
                 Log4r::NDC.set_max_depth(72)
-                Log4r::NDC.inherit(stackLocal)
+                Log4r::NDC.inherit(stackLocal.clone)
                 
                 evOne = event.clone
                 $log.debug("Creating periodic thread scheduler for: #{evOne.name} #{evOne.eventuid}")
@@ -194,14 +193,12 @@ class Team #Really the TeamScheduler
                     #IE once the handler has launched it can do whatever it wants until it returns
                     #If the GS is paused while it is running tough beans for us.
 
-                    stackLocal = Log4r::NDC.clone_stack()
-                    
                     eventLocal = Thread.new do
 
                         launchAt = app_core.gameclock.gametime
+                        
                         Log4r::NDC.set_max_depth(72)
-
-                        Log4r::NDC.inherit(stackLocal)
+                        Log4r::NDC.inherit(stackLocal.clone)
 
                         #Run the event through its handler
                         this_event = event_handler.run(evOne, app_core)
@@ -227,7 +224,7 @@ class Team #Really the TeamScheduler
         @singletonThread = Thread.new {
 
             Log4r::NDC.set_max_depth(72)
-            Log4r::NDC.inherit(stackLocal)
+            Log4r::NDC.inherit(stackLocal.clone)
             
             sleeptime = 0
            
@@ -269,8 +266,8 @@ class Team #Really the TeamScheduler
                     eventLocal = Thread.new do
                         
                         Log4r::NDC.set_max_depth(72)
-                        Log4r::NDC.inherit(stackLocal)
-                        
+                        Log4r::NDC.inherit(stackLocal.clone)
+                       
                         launchAt = app_core.gameclock.gametime
 
                         if evOne.nil?
@@ -284,7 +281,7 @@ class Team #Really the TeamScheduler
                         event_handler = app_core.get_handler(evOne.eventhandler)
                         this_event = event_handler.run(evOne, app_core)
 
-                        msgtext = evOne.name.to_s.light_magenta + " " +
+                        msgtext = 'SINGLETON '.green + evOne.name.to_s.light_magenta + " " +
                             launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
                         
                         $log.debug msgtext
