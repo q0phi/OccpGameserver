@@ -6,9 +6,9 @@ class MetasploitHandler < Handler
 
     def initialize(ev_handler)
         super
-        self.serverip = ev_handler[:"server-ip"]
-        self.serverport = ev_handler[:"server-port"]
-        self.serverhostname = ev_handler[:"server-hostname"]
+        @serverip = ev_handler[:"server-ip"]
+        @serverport = ev_handler[:"server-port"]
+        @serverhostname = ev_handler[:"server-hostname"]
 
     end
 

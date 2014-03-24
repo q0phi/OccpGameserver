@@ -22,12 +22,15 @@ class ExecHandler < Handler
         new_event.drift = event.find('drift').first.attributes["value"].to_f
 
         event.find('score-atomic').each{ |score|
+            
             token = {:succeed => true}
-            if score.attributes["when"] == 'success'
+            case score.attributes["when"]
+            when 'success'
                 token = {:succeed => true}
-            elsif score.attributes["when"] == 'fail'
+            when 'fail'
                 token = {:succeed => false}
             end
+            
             new_event.scores << token.merge( {:scoregroup => score.attributes["score-group"],
                                                 :value => score.attributes["points"].to_f } )
         }
@@ -75,7 +78,7 @@ class ExecHandler < Handler
             }
 
         elsif( success === nil )
-                msg = "Command failed to run: " + event.command
+                msg = "Command failed to run: #{event.command}"
                 $log.error(msg)
 
         else

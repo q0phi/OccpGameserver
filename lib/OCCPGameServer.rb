@@ -127,7 +127,7 @@ module OCCPGameServer
                        
                         event_handler = main_runner.get_handler(handler_name)
                         raise ArgumentError, "Error found in file #{instancefile}: #{handler_node.line_num.to_s} - handler #{handler_name} not defined" if event_handler.nil?
-
+                        
                         this_event = event_handler.parse_event(event)
 
                         #Split the list into periodic and single events
