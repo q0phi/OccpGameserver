@@ -87,6 +87,11 @@
         <length format="seconds">00:30:00</length>
     </instance>
 
+    <host label="gameserver" hostname="gameserver">
+        <interface name="eth0" network="pub" />
+        <interface name="eth1" network="prvt"  />
+        <interface name="eth2" network="int" />
+    </host>
     <!-- Identify each location that team processes will execute.
          Each of these locations needs to be contacted to dispatch the appropriate team code to. 
          These hosts need to specified in the host section. -->

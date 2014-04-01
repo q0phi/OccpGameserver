@@ -70,9 +70,25 @@ module OCCPGameServer
         $log.info "Network ID: " + main_runner.networkid
 
 
+        #load the network map
+        doc.find('host').each do |host|
+            hostAttrs = host.attributes.to_h.inject({}){ |lh,(k,v)| lh[k.to_sym] = v; lh }
+            if hostAttrs[:label] == "gameserver"
+                host.find('interface').each do |interface|
+                    block = interface.attributes.to_h.inject({}){ |lh,(k,v)| lh[k.to_sym] = v; lh }
+                   # if not block.empty?
+                        main_runner.interfaces << block
+                    #end
+                end
+            end
+        end
+        
+        print(main_runner.interfaces)
+        gets()
+
         #Register the team host locations (minimally localhost)
         team_node = doc.find('/occpchallenge/team-hosts').first
-        team_node.each_element {|element| 
+        team_node.each_element do |element| 
             el_hash = element.attributes.to_h
             el_hash = el_hash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
 
@@ -80,7 +96,7 @@ module OCCPGameServer
             $log.info "New Team Host: " + el_hash[:name]
 
             main_runner.add_host(el_hash)
-        }
+        end
            
                 
         #Instantiate the event-handlers for this scenario
