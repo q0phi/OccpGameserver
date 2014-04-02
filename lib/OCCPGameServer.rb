@@ -75,17 +75,11 @@ module OCCPGameServer
             hostAttrs = host.attributes.to_h.inject({}){ |lh,(k,v)| lh[k.to_sym] = v; lh }
             if hostAttrs[:label] == "gameserver"
                 host.find('interface').each do |interface|
-                    block = interface.attributes.to_h.inject({}){ |lh,(k,v)| lh[k.to_sym] = v; lh }
-                   # if not block.empty?
-                        main_runner.interfaces << block
-                    #end
+                    main_runner.interfaces << interface.attributes.to_h.inject({}){ |lh,(k,v)| lh[k.to_sym] = v; lh }
                 end
             end
         end
         
-        print(main_runner.interfaces)
-        gets()
-
         #Register the team host locations (minimally localhost)
         team_node = doc.find('/occpchallenge/team-hosts').first
         team_node.each_element do |element| 

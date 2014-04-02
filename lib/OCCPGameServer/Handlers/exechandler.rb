@@ -1,9 +1,22 @@
 module OCCPGameServer
 class ExecHandler < Handler
 
+    @@ipAddress = Struct.new(:ipaddress, :random) do
+        def get_address
+            if random
+                ip = ''
+            else
+                ip = ipaddress
+            end
+            return ip
+        end
+    end
 
     def initialize(ev_handler_hash)
         super
+
+        @interface = ev_handler_hash[:interface]
+
     end
 
     # Parse the exec event xml code into a execevent object
@@ -20,6 +33,12 @@ class ExecHandler < Handler
         new_event.freqscale = event.find('rate').first.attributes["scale"].to_s
         new_event.frequency = event.find('rate').first.attributes["value"].to_f
         new_event.drift = event.find('drift').first.attributes["value"].to_f
+        
+        val = event.find('ip-address').first
+        val = val ? val.attributes["value"].to_s : nil
+        rand = event.find('ip-address').first
+        rand = rand ? rand.attributes["randomize"] : false
+        new_event.address = @@ipAddress.new(val, rand)
 
         event.find('score-atomic').each{ |score|
             

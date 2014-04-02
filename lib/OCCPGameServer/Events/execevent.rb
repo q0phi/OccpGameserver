@@ -1,6 +1,6 @@
 class ExecEvent < Event
 
-    attr_accessor :command, :parameters
+    attr_accessor :command, :parameters, :address
 
     def initiailize()
         super
