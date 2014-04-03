@@ -112,7 +112,7 @@ module OCCPGameServer
             end
            
         }
-
+        
         # Load each team by parsing
         $log.info('Parsing Team Data...')
         doc.find('/occpchallenge/team').each { |teamxmlnode|
@@ -132,16 +132,19 @@ module OCCPGameServer
                     eventlist.find('team-event').each {|event|
                             
                         #First Identify the handler
-                        handler_node = event.find("handler").first
-                        handler_name = handler_node.attributes["name"]
-                       
+                        handler_name = event.attributes["handler"]
                         event_handler = main_runner.get_handler(handler_name)
-                        raise ArgumentError, "Error found in file #{instancefile}: #{handler_node.line_num.to_s} - handler #{handler_name} not defined" if event_handler.nil?
-                        
-                        this_event = event_handler.parse_event(event)
+                        raise ArgumentError, "Error found in file #{instancefile}: #{event.line_num.to_s} - handler #{handler_name} not defined" if event_handler.nil?
+                       
 
+                        begin
+                            this_event = event_handler.parse_event(event)
+                        rescue ArgumentError=>e
+                            raise ArgumentError, "Error found in file #{instancefile}: #{event.line_num.to_s} - #{e.message}"
+                        end
+                       
                         #Split the list into periodic and single events
-                        if this_event.freqscale === 'none'
+                        if this_event.frequency.eql?(0.0)
                             new_team.singletonList << this_event
                         else
                             new_team.periodicList << this_event
@@ -304,10 +307,10 @@ module OCCPGameServer
         end
 
         # Process the instance file and get the app core class
-        main_runner = instance_file_parser($options[:gamefile])
+        $appCore = instance_file_parser($options[:gamefile])
 
         #Launch the main application
-        main = Thread.new { main_runner.run }
+        main = Thread.new { $appCore.run }
     
         #Setup the menuing system
         highL = HighLine.new
@@ -322,7 +325,7 @@ module OCCPGameServer
                 menu.header = "==================================\nSelect from the list below"
                 menu.choice(:Status) {
                     highL.say("==================================")
-                    currentStatus = main_runner.STATE
+                    currentStatus = $appCore.STATE
                     
                     case currentStatus
                         when RUN
@@ -330,30 +333,30 @@ module OCCPGameServer
                         when WAIT
                             highL.say("Teams are Paused")
                     end
-                    main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
+                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
              
-             #       main_runner.scoreKeeper.labels.each{|label| 
+             #       $appCore.scoreKeeper.labels.each{|label| 
              #           puts 'found: '.red + (label.get_sql.nil? ? '' : label.get_sql )
              #       }
-             #       main_runner.scoreKeeper.names.each{|label| 
+             #       $appCore.scoreKeeper.names.each{|label| 
              #           puts 'found: '.red + label.to_s
              #       }
-             #       main_runner.scoreKeeper.get_labels.each{ |scoreName|
+             #       $appCore.scoreKeeper.get_labels.each{ |scoreName|
              #           puts scoreName
              #       }
-                    main_runner.scoreKeeper.get_names.each{ |scoreName|
-                        highL.say(scoreName + ': ' + main_runner.scoreKeeper.get_score(scoreName).to_s )
+                    $appCore.scoreKeeper.get_names.each{ |scoreName|
+                        highL.say(scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s )
                     }
 
                     
                 }
                 menu.choice(:"Start"){
-                    #main_runner.set_state(Main::RUN)
-                    main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
+                    #$appCore.set_state(Main::RUN)
+                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
                 }
                 menu.choice(:"Pause"){
-                    #main_runner.set_state(Main::WAIT)
-                    main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
+                    #$appCore.set_state(Main::WAIT)
+                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
                 }
                 menu.choice(:"Clear Screen") {
                     system("clear")
@@ -361,7 +364,7 @@ module OCCPGameServer
                 menu.choice(:Quit) {
                     #if highL.agree("Confirm exit? ", true)
                         highL.say("Exiting...")
-                        main_runner.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
+                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
                         exitable = true
                     #end
                 }

@@ -6,6 +6,7 @@ class MetasploitHandler < Handler
 
     def initialize(ev_handler)
         super
+
         @serverip = ev_handler[:"server-ip"]
         @serverport = ev_handler[:"server-port"]
         @serverhostname = ev_handler[:"server-hostname"]
@@ -15,7 +16,9 @@ class MetasploitHandler < Handler
     def parse_event(event)
         require 'securerandom'
 
-        new_event  = ExecEvent.new
+        new_event  = MetasploitEvent.new
+        
+        return new_event
 
         new_event.eventhandler = event.find("handler").first.attributes["name"] 
         new_event.name = event.find('event-name').first.attributes["name"]

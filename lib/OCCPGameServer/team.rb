@@ -135,6 +135,7 @@ class Team #Really the TeamScheduler
                 $log.debug("Creating periodic thread scheduler for: #{evOne.name} #{evOne.eventuid}")
                 #threaduid = evOne.eventuid
                 sleepFor = 0
+                drift = 0
                     
                 # Get the handler from the app_core and launch the event
                 event_handler = app_core.get_handler(evOne.eventhandler)
@@ -203,8 +204,9 @@ class Team #Really the TeamScheduler
                         #Run the event through its handler
                         this_event = event_handler.run(evOne, app_core)
 
+                        slept = evOne.frequency + drift
                         msgtext = "PERIODIC ".green + evOne.name.to_s.light_magenta + " " +
-                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
+                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + slept.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
                         
                         $log.debug msgtext
 
@@ -212,7 +214,8 @@ class Team #Really the TeamScheduler
 
                     @eventGroup.add(eventLocal)
 
-                    sleepFor = evOne.period
+                    drift = evOne.drift.eql?(0.0) ? 0.0 : Random.rand(evOne.drift*2)-(evOne.drift)
+                    sleepFor = evOne.frequency + drift
                    
                 end # end Event Scheduler Thread Loop
                 $log.debug("Exiting scheduler loop for: #{evOne.name} #{evOne.eventuid}".red)

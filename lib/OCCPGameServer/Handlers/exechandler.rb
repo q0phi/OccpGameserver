@@ -1,9 +1,9 @@
 module OCCPGameServer
 class ExecHandler < Handler
 
-    @@ipAddress = Struct.new(:ipaddress, :random) do
+    @@ipAddress = Struct.new(:ipaddress) do
         def get_address
-            if random
+            if ipaddress == 'random'
                 ip = ''
             else
                 ip = ipaddress
@@ -23,23 +23,12 @@ class ExecHandler < Handler
     def parse_event(event)
         require 'securerandom'
 
-        new_event  = ExecEvent.new
-
-        new_event.eventhandler = event.find("handler").first.attributes["name"]        
-        new_event.name = event.find('event-name').first.attributes["name"]
-        new_event.eventuid = SecureRandom.uuid
-        new_event.starttime = event.find('starttime').first.attributes["time"].to_i
-        new_event.endtime = event.find('endtime').first.attributes["time"].to_i
-        new_event.freqscale = event.find('rate').first.attributes["scale"].to_s
-        new_event.frequency = event.find('rate').first.attributes["value"].to_f
-        new_event.drift = event.find('drift').first.attributes["value"].to_f
+        eh = event.attributes.to_h.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
         
-        val = event.find('ip-address').first
-        val = val ? val.attributes["value"].to_s : nil
-        rand = event.find('ip-address').first
-        rand = rand ? rand.attributes["randomize"] : false
-        new_event.address = @@ipAddress.new(val, rand)
+        eh.merge!({:eventuid => SecureRandom.uuid})
 
+        new_event  = ExecEvent.new(eh)
+        
         event.find('score-atomic').each{ |score|
             
             token = {:succeed => true}
@@ -58,13 +47,6 @@ class ExecHandler < Handler
             new_event.attributes << { param.attributes["name"] => param.attributes["value"] }
         }
         
-        program = event.find('command').first
-        if not program.nil?
-            new_event.command = program.attributes["value"]
-        else
-            raise ArgumentError, "Error found in file #{$options[:gamefile]}:#{event.line_num.to_s} - Exec Event: #{new_event.name} does not contain a shell command"
-        end
-              
         return new_event
     end
 
@@ -74,8 +56,9 @@ class ExecHandler < Handler
         
         begin
             # run the provided command
+            #puts event.name + event.command.to_s
             success = system(event.command, [:out, :err]=>'/dev/null')
-
+        
         rescue Exception => e
                 msg = "Event failed to run: #{e.message}".red
                 $log.warn msg

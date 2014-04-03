@@ -1,3 +1,4 @@
+module OCCPGameServer
 class MetasploitEvent < Event
 
     attr_accessor :handler, :modulename
@@ -6,4 +7,5 @@ class MetasploitEvent < Event
         super
     end
 
+end
 end
