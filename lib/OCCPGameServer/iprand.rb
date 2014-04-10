@@ -84,7 +84,10 @@ module OCCPGameServer
         ##
         # Generate an array of subnet addresses
         #
-        def gen_ip_block(number)
+        def self.gen_ip_block(number)
+
+            #generate one extra address for ranging
+            #number += 1
 
             require 'set'
             require 'simple-random'

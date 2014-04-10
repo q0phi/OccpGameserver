@@ -43,6 +43,24 @@ class IPRandTest < Test::Unit::TestCase
 
     end
     
+    ##
+    #Test generate ip address block
+    #
+    def test_gen_ip
+        
+        number = 23
+        
+        block = OCCPGameServer::IPRand.gen_ip_block(number)
+
+        block.each do |e|
+            assert( ( e > 0 && e < 255 ) , "ip subnet adress out of range" )
+        end
+
+        assert_equal( block.length, number, "number of addresses not sufficient")
+
+    end
+
+
 #    def test_speed
 #
 #        total = 0
