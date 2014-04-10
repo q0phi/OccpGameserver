@@ -81,6 +81,47 @@ module OCCPGameServer
 
         end
 
+        ##
+        # Generate an array of subnet addresses
+        #
+        def gen_ip_block(number)
+
+            require 'set'
+            require 'simple-random'
+
+            sr = SimpleRandom.new
+            sr.set_seed()
+            
+            ips = Set.new
+
+            while ips.length <= number
+                ips << sr.chi_square(2)
+            end
+
+            #normalize
+            max_value = ips.to_a.max
+
+            ipsa = ips.to_a.map{|e| ((e / max_value) * 254 ).to_i }
+            #print "#{ipsa.length} -- #{ipsa.sort!.to_s}\n\n"
+
+            #De-dup
+            ipsa.sort!.reverse!.shift
+            ips = Set.new
+            ipsa.each{|e|
+                while ips.member?(e) do
+                    e -= 1
+                end
+                #if e <= 0 # we reached the bottom search upwards
+                    while (e <= 0 || ips.member?(e)) && e < 254 do
+                        e += 1
+                    end
+                #end
+                ips << e
+            }
+            ips.to_a
+        end
+        
+
 
 
     end
