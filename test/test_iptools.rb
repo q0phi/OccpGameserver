@@ -1,9 +1,9 @@
 #$LOAD_PATH.unshift("#{File.dirname(__FILE__)}/../lib")
 require "test/unit"
-require_relative "../lib/OCCPGameServer/iprand"
+require_relative "../lib/OCCPGameServer/iptools"
 require "socket"
 
-class IPRandTest < Test::Unit::TestCase
+class IPToolsTest < Test::Unit::TestCase
 
     def initialize( somevar )
         super
@@ -24,7 +24,7 @@ class IPRandTest < Test::Unit::TestCase
         ifName = 'eth0'
         ipAddr = @listips[Random.rand(7)]
 
-        field1 = OCCPGameServer::IPRand.ns_create("OCCPnsTest", ifName, ipAddr)
+        field1 = OCCPGameServer::IPTools.ns_create("OCCPnsTest", ifName, ipAddr)
 
         pR, pW = IO.pipe
         
@@ -50,7 +50,7 @@ class IPRandTest < Test::Unit::TestCase
         
         number = 23
         
-        block = OCCPGameServer::IPRand.gen_ip_block(number)
+        block = OCCPGameServer::IPTools.gen_ip_block(number)
 
         block.each do |e|
             assert( ( e > 0 && e < 255 ) , "ip subnet adress out of range" )
