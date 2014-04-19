@@ -13,7 +13,7 @@ class MetasploitHandler < Handler
 
     end
 
-    def parse_event(event)
+    def parse_event(event, appCore)
         require 'securerandom'
 
         new_event  = MetasploitEvent.new

@@ -1,7 +1,73 @@
 module OCCPGameServer
-    class IPRand
+    class IPTools
 
-        #return a new Struct for the NS
+        ##
+        # A thread-safe network namespace registry class
+        #
+        class NetNSRegistry
+
+            def initialize()
+                @@registry = {}
+                @@regMutex = Mutex.new
+            end
+
+            def get_netns(networkSegment, ipaddr)
+
+                # NetNS Name
+                netNSName = "occp_#{ipaddr}"
+                
+                nsHandle = nil
+                ## ENTER CRITICAL
+                @@regMutex.synchronize do
+                    # Check if the NS Exists
+                    if @@registry.member(netNSName)
+
+                        # increment the ref count
+                        @@registry[netNSName][:refcount] += 1
+                    
+                        nsHandle = @@registry[netNSName][:handle]
+                    else
+                        # create the ns
+                        nsHandle = ns_create(netNSName, networkSegment, ipaddr)
+
+                        @@registry[netNSName] = {:handle => nsHandle, :refcount = 1}
+
+                    end
+                end
+                ## EXIT CRITICAL
+
+                return nsHandle
+            end
+
+            def release_netns(ipaddr)
+
+                # NetNS Name
+                netNSName = "occp_#{ipaddr}"
+                
+                ## ENTER CRITICAL
+                @regMutext.synchronize do
+                    # Check if the NS Exists
+                    if @@registry.member(netNSName)
+
+                        # increment the ref count
+                        @@registry[netNSName][:refcount] -= 1
+                        refCount = @@registry[netNSName][:refcount]
+
+                        if refCount <= 0 
+                            #release the NS
+                            netns = @@registry.delete(netNSName)
+                            netns[:handle].delete
+                        end
+                    end
+                end
+                ## EXIT CRITICAL
+            end
+
+        end # End NetNSRegistry Class
+        
+        ##
+        # A representation of a network namespace execution context
+        #
         class NetNS 
             attr_accessor :rootIF, :nsName, :ipaddr
             #:nsName = nsName
@@ -90,7 +156,7 @@ module OCCPGameServer
             #number += 1
 
             require 'set'
-            require 'simple-random'
+            #require 'simple-random'
 
             sr = SimpleRandom.new
             sr.set_seed()
@@ -124,7 +190,35 @@ module OCCPGameServer
             ips.to_a
         end
         
+        ##
+        # Create a list of addresses from a block definition
+        #
+        def self.generate_address_list(addrDef)
+            
+            list = Array.new
+            
+            #calculate the address space size
+            addr = addrDef[:addr]
+            ipaddr,netmask = addr.split('/')
+            aSpace = NetAddr::CIDR.create(addr)
 
+            sizeOf = aSpace.size
+            count = 0
+            while count < addrDef[:count].to_i && list.length < sizeOf - 2 do
+
+                newAddr = aSpace.nth(rand(sizeOf))
+                lastoctet = newAddr.split('.')[3]
+                if list.include?(newAddr) || lastoctet == "0" || lastoctet == "255"
+                    next
+                else
+                    count += 1
+                    list << newAddr
+                end
+
+            end
+
+            return list.sort
+        end
 
 
     end

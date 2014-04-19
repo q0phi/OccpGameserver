@@ -30,7 +30,7 @@ module OCCPGameServer
         end
 
         def start
-            mutex.synchronize do
+            @mutex.synchronize do
                 @lastreadtime = Time.now
                 @clockstate = :running
             end

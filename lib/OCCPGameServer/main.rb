@@ -3,7 +3,7 @@ module OCCPGameServer
     class Main
 
         attr_accessor :gameclock, :networkid, :scenarioname, :INBOX, :eventRunQueue
-        attr_accessor :STATE, :db, :scoreKeeper, :interfaces
+        attr_accessor :STATE, :db, :scoreKeeper, :interfaces, :ipPools
 
         def initialize
             @events = {}
@@ -16,18 +16,14 @@ module OCCPGameServer
             @eventRunQueue = Queue.new
             
             @INBOX = Queue.new
-
             @db = ''
-
             @handlers= Array.new
-
             @gameclock = GameClock.new
-
             @scoreKeeper = Score.new
-
+            @interfaces = Array.new
+            @ipPools = {}
+            @nsPool = Array.new
             @STATE = WAIT
-
-            @interfaces = []
         end
 
         def add_event()
@@ -54,6 +50,41 @@ module OCCPGameServer
         
         def get_handlers()
             @handlers
+        end
+
+        def get_network(name)
+            return @interfaces.find{|netName| netName[:network] == name }
+        end
+
+        ##
+        # Return a network namespace for the given network segment
+        # If the ip address may either be a valid address or pool name 
+        #
+        def get_netns(networkSegment, ipaddr)
+
+            if NetAddr.validate_ip_address(ipaddr) 
+
+                netns = NetNSRegistry.get_netns(networkSegment, ipaddr)
+                
+            else
+                # Choose a random ip address
+                pool = @ipPools[ipaddr]
+                if pool.nil? || pool.empty?
+                    return nil
+                end
+                randIP = pool[rand(pool.length)]
+
+                netns = NetNSRegistry.get_registered_netns(networkSegment, ipaddr)
+            end
+
+            return netns
+        end
+
+        ##
+        # Release the name space when not using it
+        #
+        def release_netns(netnsName)
+            NetNSRegistry.release_registered_netns(netnsName)
         end
 
         def set_state(state)

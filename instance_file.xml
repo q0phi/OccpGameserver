@@ -92,6 +92,20 @@
         <interface name="eth1" network="prvt"  />
         <interface name="eth2" network="int" />
     </host>
+    <ip-pools>
+        <pool name="pub_1">
+            <address type="range" count="500" addr="16.0.0.0/8" select="asc" />
+            <address type="range" count="40" addr="78.3.0.0/24" select="asc" />
+            <address type="range" count="15" addr="200.15.14.0/24" select="asc" />
+        </pool>
+        <pool name="prvt_1">
+            <address type="range" count="130" addr="87.15.0.0/20" select="asc" />
+        </pool>
+       <pool name="int_1">
+            <address type="range" count="15" addr="10.24.15.0/24" select="asc" />
+            <address type="list">10.3.3.2, 10.3.3.3, 128.15.23.4, 143.34.21.9</address>
+        </pool>
+   </ip-pools>
     <!-- Identify each location that team processes will execute.
          Each of these locations needs to be contacted to dispatch the appropriate team code to. 
          These hosts need to specified in the host section. -->
@@ -110,8 +124,7 @@
     <event-handlers>
 
         <handler name="exec-handler-1" 
-                    class-handler="ExecHandler"
-                    interface="eth1"/>
+                    class-handler="ExecHandler" />
         <handler name="metasploit-handler-1"
                     class-handler="MetasploitHandler"
                     server-hostname="host1"
@@ -137,23 +150,27 @@
         
         <!-- Parent block for events in this teams event list -->
         <team-event-list>
-            <team-event name="Ping Test" id="" guid="" handler="exec-handler-1" starttime="0" endtime="9999999" frequency="10" drift="0" 
-                ipaddress="random" command="ping -c 2 127.2.2.1">
+            <team-event name="Ping Test" id="" guid="" handler="exec-handler-1" network="prvt" ipaddress="random" pool="pub_1"
+                starttime="0" endtime="9999999" frequency="10" drift="0" 
+                command="ping -c 2 10.24.32.5">
                 <score-atomic when="success" score-group="group1" points="5" />
                 <score-atomic when="fail" score-group="group2" points="-3" />
             </team-event>
-            <team-event name="Exec Test" id="" guid="" handler="exec-handler-1" starttime="0" endtime="9999999" frequency="2" drift="0" 
-                ipaddress="random" command="ping -c 1 127.0.0.3">
+            <team-event name="Exec Test" id="" guid="" handler="exec-handler-1" network="prvt" ipaddress="10.24.32.4"
+                starttime="0" endtime="9999999" frequency="2" drift="0" 
+                command="ping -c 1 10.24.32.5">
                 <score-atomic when="success" score-group="group1" points="5" />
                 <score-atomic when="fail" score-group="group2" points="-3" />
             </team-event>
-            <team-event name="ping" id="" guid="" handler="exec-handler-1" starttime="0" endtime="9999999" frequency="5" drift="0" 
-                ipaddress="random" command="true">
+            <team-event name="ping" id="" guid="" handler="exec-handler-1" network="prvt" ipaddress="random" pool="prvt_1"
+                starttime="0" endtime="9999999" frequency="5" drift="0"
+                command="ping -c 2 10.24.32.5">
                 <score-atomic when="success" score-group="group1" points="5" />
                 <score-atomic when="fail" score-group="group2" points="-3" />
             </team-event>
-            <team-event name="Which" id="" guid="" handler="exec-handler-1" starttime="0" endtime="9999999" frequency="0" drift="0" 
-                ipaddress="random" command="which ping">
+            <team-event name="Which" id="" guid="" handler="exec-handler-1" network="prvt" ipaddress="random" pool="int_1"
+                starttime="0" endtime="9999999" frequency="0" drift="0" 
+                command="ping -c 2 10.24.32.5">
                 <score-atomic when="success" score-group="group1" points="25" />
                 <score-atomic when="fail" score-group="group2" points="-1" />
             </team-event>
@@ -170,23 +187,27 @@
         
         <!-- Parent block for events in this teams event list -->
         <team-event-list>
-            <team-event name="Ping Test" id="" guid="" handler="exec-handler-1" starttime="0" endtime="9999999" frequency="0" drift="0" 
-                ipaddress="random" command="ping -c 4 127.0.0.1">
+            <team-event name="Ping Test" id="" guid="" handler="exec-handler-1" network="prvt" ipaddress="random" pool="pub_1"
+                starttime="0" endtime="9999999" frequency="0" drift="0" 
+                command="ping -c 4 127.0.0.1">
                 <score-atomic when="success" score-group="group1" points="5" />
                 <score-atomic when="fail" score-group="group2" points="-3" />
             </team-event>
-            <team-event name="Exec Test" id="" guid="" handler="exec-handler-1" starttime="0" endtime="9999999" frequency="3" drift="0" 
-                ipaddress="random" command="ping -c 1 127.0.4.3">
+            <team-event name="Exec Test" id="" guid="" handler="exec-handler-1" network="prvt" ipaddress="random" pool="int_1"
+                starttime="0" endtime="9999999" frequency="3" drift="0" 
+                command="ping -c 1 127.0.4.3">
                 <score-atomic when="success" score-group="group1" points="5" />
                 <score-atomic when="fail" score-group="group2" points="-3" />
             </team-event>
-            <team-event name="Arping" id="" guid="" handler="exec-handler-1" starttime="0" endtime="9999999" frequency="0" drift="0" 
-                ipaddress="random" command="arping -c 1 127.0.2.3">
+            <team-event name="Arping" id="" guid="" handler="exec-handler-1" network="prvt" ipaddress="random" pool="int_1"
+                starttime="0" endtime="9999999" frequency="0" drift="0" 
+                command="arping -c 1 127.0.2.3">
                 <score-atomic when="success" score-group="group1" points="5" />
                 <score-atomic when="fail" score-group="group2" points="-3" />
             </team-event>
-            <team-event name="Which" id="" guid="" handler="exec-handler-1" starttime="0" endtime="9999999" frequency="8" drift="0" 
-                ipaddress="random" command="/usr/bin/which ping">
+            <team-event name="Which" id="" guid="" handler="exec-handler-1" network="prvt" ipaddress="random" pool="int_1"
+                starttime="0" endtime="9999999" frequency="8" drift="0" 
+                command="/usr/bin/which ping">
                 <score-atomic when="success" score-group="group1" points="25" />
                 <score-atomic when="fail" score-group="group2" points="-1" />
             </team-event>

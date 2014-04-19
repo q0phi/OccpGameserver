@@ -3,7 +3,8 @@ module OCCPGameServer
 
         attr_accessor :eventid, :name, :eventhandler
         attr_accessor :eventuid, :starttime, :endtime, :drift
-        attr_accessor :scores, :attributes, :rollover, :frequency 
+        attr_accessor :scores, :attributes, :rollover, :frequency
+        attr_accessor :network, :poolname
 
         def initialize(eh)
             @scores = Array.new
@@ -28,6 +29,9 @@ module OCCPGameServer
 
             raise ArgumentError, "no drift defined --use 0 for no drift--" if eh[:drift].nil?
             @drift = eh[:drift].to_f
+            
+            raise ArgumentError, "no network name defined" if eh[:network].nil?
+            @network = eh[:network].to_s
 
         end
 

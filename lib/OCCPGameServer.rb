@@ -11,6 +11,7 @@ require "OCCPGameServer/gameclock"
 require "OCCPGameServer/team"
 require "OCCPGameServer/gmessage"
 require "OCCPGameServer/score"
+require "OCCPGameServer/iptools"
 require "OCCPGameServer/Handlers/handler"
 require "OCCPGameServer/Handlers/exechandler"
 require "OCCPGameServer/Handlers/metasploithandler"
@@ -27,6 +28,9 @@ require 'thread'
 require 'sqlite3'
 require "highline"
 require "colorize"
+require 'securerandom'
+require 'simple-random'
+require 'netaddr'
 
 module OCCPGameServer
     #Challenge Run States
@@ -39,7 +43,6 @@ module OCCPGameServer
 
     # Takes an instance configuration file and returns an instance of the core application. 
     def self.instance_file_parser(instancefile)
-        require 'securerandom'
 
         instance_parser = XML::Parser.file(instancefile)
         XML.default_line_numbers = true
@@ -78,6 +81,45 @@ module OCCPGameServer
                     main_runner.interfaces << interface.attributes.to_h.inject({}){ |lh,(k,v)| lh[k.to_sym] = v; lh }
                 end
             end
+        end
+
+        # Create the IP address pools
+        ip_pools = doc.find('ip-pools').first
+        ip_pools.each_element do |pool|
+            poolHash = pool.attributes.to_h
+            poolHash = poolHash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
+            poolHash.merge!({:addresses => Array.new})
+
+            pool.each_element do |addrDef|
+                addrHash = addrDef.attributes.to_h
+                addrHash = addrHash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
+           
+                begin
+                    list = Array.new
+                    case addrHash[:type] 
+                    when 'range' 
+                        poolHash[:addresses] += IPTools.generate_address_list(addrHash)
+                    when 'list'
+                        #decode the JSON content array
+                        if !addrDef.empty?
+                            addrArray = addrDef.content.split(',')
+                            addrArray.each do |addr|
+                                addr.strip!
+                                # check that the addr is calid
+                                #addr.regexmatch('')
+                                poolHash[:addresses] << addr
+                            end
+                        end
+                    end
+                rescue Exception=>e
+                    msg = "Error found in file #{instancefile}: #{addrDef.line_num.to_s} - #{e.message}"
+                    $log.error(msg.to_s.red)
+                    puts msg.to_s.red
+                    exit(1)
+                end
+            end
+            poolHash[:addresses].uniq!
+            main_runner.ipPools.merge!(poolHash[:name] => poolHash[:addresses])
         end
         
         #Register the team host locations (minimally localhost)
@@ -138,7 +180,7 @@ module OCCPGameServer
                        
 
                         begin
-                            this_event = event_handler.parse_event(event)
+                            this_event = event_handler.parse_event(event, main_runner)
                         rescue ArgumentError=>e
                             raise ArgumentError, "Error found in file #{instancefile}: #{event.line_num.to_s} - #{e.message}"
                         end

@@ -20,7 +20,7 @@ class ExecHandler < Handler
     end
 
     # Parse the exec event xml code into a execevent object
-    def parse_event(event)
+    def parse_event(event, appCore)
         require 'securerandom'
 
         eh = event.attributes.to_h.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
@@ -28,9 +28,13 @@ class ExecHandler < Handler
         eh.merge!({:eventuid => SecureRandom.uuid})
 
         new_event  = ExecEvent.new(eh)
-        
+       
+        # cross-verify event networking
+        netHash = appCore.get_network(new_event.network)
+        raise ArgumentError, "event network label not defined #{new_event.network}" if netHash.nil? || netHash.empty?
+
+        # Add scores to event
         event.find('score-atomic').each{ |score|
-            
             token = {:succeed => true}
             case score.attributes["when"]
             when 'success'
@@ -38,11 +42,11 @@ class ExecHandler < Handler
             when 'fail'
                 token = {:succeed => false}
             end
-            
             new_event.scores << token.merge( {:scoregroup => score.attributes["score-group"],
                                                 :value => score.attributes["points"].to_f } )
         }
 
+        #Support arbitrary parameter storage
         event.find('parameters/param').each { |param|
             new_event.attributes << { param.attributes["name"] => param.attributes["value"] }
         }
@@ -54,6 +58,10 @@ class ExecHandler < Handler
 
         Log4r::NDC.push('ExecHandler:')
         
+        # setup the execution space
+        # IE get a network namespace for this execution for the given IP address
+        
+
         begin
             # run the provided command
             #puts event.name + event.command.to_s
