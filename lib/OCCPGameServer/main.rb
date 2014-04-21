@@ -58,26 +58,31 @@ module OCCPGameServer
             return @interfaces.find{|netName| netName[:network] == name }
         end
 
+        def get_ip_pool(name)
+            return @ipPools[name]
+        end
+
         ##
         # Return a network namespace for the given network segment
         # If the ip address may either be a valid address or pool name 
-        #
-        def get_netns(networkSegment, ipaddr)
+        # netInfo = {iface, ipaddr, cidr, gateway}
+        def get_netns(netInfo)
 
-            if !@ipPools.member?(ipaddr) 
+          netns = @nsRegistry.get_registered_netns(netInfo)
+          #  if !@ipPools.member?(ipaddr) 
 
-                netns = @nsRegistry.get_registered_netns(networkSegment, ipaddr)
-                
-            else
-                # Choose a random ip address
-                pool = @ipPools[ipaddr]
-                if pool.nil? || pool.empty?
-                    return nil
-                end
-                randIP = pool[rand(pool.length)]
+          #      netns = @nsRegistry.get_registered_netns(netInfo)
+          #      
+          #  else
+          #      # Choose a random ip address
+          #      pool = @ipPools[ipaddr]
+          #      if pool.nil? || pool.empty?
+          #          return nil
+          #      end
+          #      netInfo = {:iface => networkSegment, :ipaddr => pool[rand(pool.length)], :cidr => pool[:cidr], :gw => pool[:gw] }
 
-                netns = @nsRegistry.get_registered_netns(networkSegment, randIP)
-            end
+          #      netns = @nsRegistry.get_registered_netns(netInfo)
+          #  end
 
             return netns
         end
@@ -161,6 +166,7 @@ module OCCPGameServer
                 end
 
             }
+
             
             #Poll the @INBOX waiting for tasks
             while message = @INBOX.pop do

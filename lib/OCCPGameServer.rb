@@ -105,7 +105,7 @@ module OCCPGameServer
                             addrArray = addrDef.content.split(',')
                             addrArray.each do |addr|
                                 addr.strip!
-                                # check that the addr is calid
+                                # TODO check that the addr is valid
                                 #addr.regexmatch('')
                                 poolHash[:addresses] << addr
                             end
@@ -119,9 +119,9 @@ module OCCPGameServer
                 end
             end
             poolHash[:addresses].uniq!
-            main_runner.ipPools.merge!(poolHash[:name] => poolHash[:addresses])
+            main_runner.ipPools.merge!(poolHash[:name] => poolHash)
         end
-        
+
         #Register the team host locations (minimally localhost)
         team_node = doc.find('/occpchallenge/team-hosts').first
         team_node.each_element do |element| 

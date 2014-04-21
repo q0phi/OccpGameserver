@@ -30,8 +30,8 @@ module OCCPGameServer
             raise ArgumentError, "no drift defined --use 0 for no drift--" if eh[:drift].nil?
             @drift = eh[:drift].to_f
             
-            raise ArgumentError, "no network name defined" if eh[:network].nil?
-            @network = eh[:network].to_s
+           # raise ArgumentError, "no network name defined" if eh[:network].nil?
+           # @network = eh[:network].to_s
 
         end
 
