@@ -33,6 +33,15 @@ class ExecHandler < Handler
         netHash = appCore.get_network(new_event.network)
         raise ArgumentError, "event network label not defined #{new_event.network}" if netHash.nil? || netHash.empty?
 
+        # check for a valid ip address or pool name
+        begin
+            NetAddr.validate_ip_addr(event[:ipaddress])
+            new_event.ipaddress = event[:ipaddress]
+        rescue NetAddr::ValidationError => e
+            raise ArgumentError, "event ip addrress or pool name not valid: #{event[:ipaddress]}" if !appCore.ipPools.member?(event[:ipaddress])
+            new_event.ipaddress = event[:ipaddress]
+        end
+
         # Add scores to event
         event.find('score-atomic').each{ |score|
             token = {:succeed => true}
@@ -60,16 +69,19 @@ class ExecHandler < Handler
         
         # setup the execution space
         # IE get a network namespace for this execution for the given IP address
-        
+        localiface = app_core.get_network(event.network)[:name]
 
+        netNS = app_core.get_netns(localiface, event.ipaddress) 
+        newCom = netNS.comwrap(event.command)
         begin
             # run the provided command
             #puts event.name + event.command.to_s
-            success = system(event.command, [:out, :err]=>'/dev/null')
+            success = system(newCom, [:out, :err]=>'/dev/null')
         
         rescue Exception => e
-                msg = "Event failed to run: #{e.message}".red
-                $log.warn msg
+            app_core.release_netns(netNS.nsName)
+            msg = "Event failed to run: #{e.message}".red
+            $log.warn msg
         end
         
         #Log message that the event ran

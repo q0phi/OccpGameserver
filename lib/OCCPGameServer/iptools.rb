@@ -7,30 +7,37 @@ module OCCPGameServer
         class NetNSRegistry
 
             def initialize()
-                @@registry = {}
-                @@regMutex = Mutex.new
+                @registry = {}
+                @regMutex = Mutex.new
+                # Protect namespaces from being thrashed
+                @shortList = Array.new
+                @lifetime = 300 #seconds
             end
 
-            def get_netns(networkSegment, ipaddr)
+            def get_registered_netns(networkSegment, ipaddr)
 
                 # NetNS Name
-                netNSName = "occp_#{ipaddr}"
+                netNSName = "occp_#{ipaddr.gsub(".","_")}"
                 
                 nsHandle = nil
                 ## ENTER CRITICAL
-                @@regMutex.synchronize do
+                @regMutex.synchronize do
                     # Check if the NS Exists
-                    if @@registry.member(netNSName)
+                    if @registry.member?(netNSName)
 
                         # increment the ref count
-                        @@registry[netNSName][:refcount] += 1
+                        @registry[netNSName][:refcount] += 1
+                        @registry[netNSName][:lastuse] = Time.now.to_f
                     
-                        nsHandle = @@registry[netNSName][:handle]
+                        nsHandle = @registry[netNSName][:handle]
+                        
+                        # remove this item from the shortlist if it exists there        
+                        @shortList.delete(netNSName) 
                     else
                         # create the ns
-                        nsHandle = ns_create(netNSName, networkSegment, ipaddr)
+                        nsHandle = IPTools.ns_create(netNSName, networkSegment, ipaddr)
 
-                        @@registry[netNSName] = {:handle => nsHandle, :refcount = 1}
+                        @registry[netNSName] = {:handle => nsHandle, :refcount => 1}
 
                     end
                 end
@@ -39,23 +46,31 @@ module OCCPGameServer
                 return nsHandle
             end
 
-            def release_netns(ipaddr)
+            def release_registered_netns(netNSName)
 
-                # NetNS Name
-                netNSName = "occp_#{ipaddr}"
-                
                 ## ENTER CRITICAL
                 @regMutext.synchronize do
                     # Check if the NS Exists
-                    if @@registry.member(netNSName)
+                    if @registry.member(netNSName)
 
-                        # increment the ref count
-                        @@registry[netNSName][:refcount] -= 1
-                        refCount = @@registry[netNSName][:refcount]
+                        # decrement the ref count
+                        refCount = @registry[netNSName][:refcount] - 1
+                        #refCount -= 1
+                        
+                        if refCount <= 0
+                            #The item should remain for at least @liftime after last use
+                            @registry[netNSName][:lastuse] = Time.now.to_f
+                            @registry[netNSName][:refcount] = 0
+                            @shortList << netNSName
+                        end
+                    end
 
-                        if refCount <= 0 
+                    #cleanup the shortlist so it will eventually release unused namespaces
+                    @shortList.each do |netNS|
+                        if Time.now.to_f - @registry[netNS][:lastuse] > @lifetime
                             #release the NS
-                            netns = @@registry.delete(netNSName)
+                            netns = @registry.delete(netNS)
+                            @shortList.delete(netNS)
                             netns[:handle].delete
                         end
                     end
@@ -69,34 +84,46 @@ module OCCPGameServer
         # A representation of a network namespace execution context
         #
         class NetNS 
-            attr_accessor :rootIF, :nsName, :ipaddr
+            attr_reader :rootIF, :nsName, :ipaddr
             #:nsName = nsName
             #:ipaddr = ipaddr
             def initialize(nsName, rootIF, ipaddr)
                 @nsName = nsName
                 @ipaddr = ipaddr
                 @rootIF = rootIF
+                tempIFace = "if#{rand(256)}"
+                begin
+                    pid = spawn("ip link add link #{@rootIF} dev #{tempIFace} type macvlan mode bridge", [:out,:err]=>"/dev/null") #print("add link\n")
+                    Process.wait pid
+                    raise ArgumentError, "failed to create initial link" if $?.exitstatus != 0
 
-                pid = spawn("ip link add link #{@rootIF} dev if#{@nsName} type macvlan mode bridge", [:out,:err]=>"/dev/null")
-                #print("add link\n")
-                Process.wait pid
-                pid = spawn("ip netns add #{@nsName}", [:out,:err]=>"/dev/null")
-                #print("create ns\n")
-                Process.wait pid
-                pid = spawn("ip link set if#{@nsName} netns #{@nsName}", [:out,:err]=>"/dev/null")
-                #print("move link to ns\n")
-                Process.wait pid
-                pid = spawn("ip netns exec #{@nsName} ip link set if#{@nsName} name eth0", [:out,:err]=>"/dev/null")
-                #print("change link name\n")
-                Process.wait pid
-                pid = spawn("ip netns exec #{@nsName} ip addr add #{@ipaddr} dev eth0", [:out,:err]=>"/dev/null")
-                #print("add address\n")
-                Process.wait pid
-                #pid = spawn("ip netns exec #{@nsName} ip route delete default")
-                #print("rem default route\n")
-                pid = spawn("ip netns exec #{@nsName} ip link set eth0 up", [:out,:err]=>"/dev/null")
-                #print("set link up\n")
-                Process.wait pid
+                    pid = spawn("ip netns add #{@nsName}", [:out,:err]=>"/dev/null") #print("create ns\n")
+                    Process.wait pid
+                    raise ArgumentError, "failed to create namespace named: #{@nsName}" if $?.exitstatus != 0
+
+                    pid = spawn("ip link set #{tempIFace} netns #{@nsName}", [:out,:err]=>"/dev/null") #print("move link to ns\n")
+                    Process.wait pid
+                    raise ArgumentError, "failed to move interface #{tempIFace} into namespace #{@nsName} " if $?.exitstatus != 0
+                
+                    pid = spawn("ip netns exec #{@nsName} ip link set #{tempIFace} name eth0", [:out,:err]=>"/dev/null") #print("change link name\n")
+                    Process.wait pid
+                    raise ArgumentError, "failed to change local link name" if $?.exitstatus != 0
+
+                    pid = spawn("ip netns exec #{@nsName} ip addr add #{@ipaddr} dev eth0", [:out,:err]=>"/dev/null") #print("add address\n")
+                    Process.wait pid
+                    raise ArgumentError, "failed to add address #{@ipaddr} to iface" if $?.exitstatus != 0
+                    #pid = spawn("ip netns exec #{@nsName} ip route delete default") #print("rem default route\n")
+
+                    pid = spawn("ip netns exec #{@nsName} ip link set eth0 up", [:out,:err]=>"/dev/null") #print("set link up\n")
+                    Process.wait pid
+                    raise ArgumentError, "failed to set link active" if $?.exitstatus != 0
+                rescue ArgumentError => e
+                    #cleanup namespace
+                    system("ip link del #{tempIFace}")
+                    system("ip netns list | awk '{print $0;}'| xargs -L 1 ip netns delete")
+                    print e.message.red
+                    exit(1)
+                end
             end
             
             ##
@@ -136,16 +163,6 @@ module OCCPGameServer
             NetNS.new(nsName, interface, ipAddr)
         end
 
-
-        #create a namespace address pool
-        def ns_pool_create(name, number)
-
-        end
-
-        #destroy a namespace pool
-        def ns_pool_destroy(name)
-
-        end
 
         ##
         # Generate an array of subnet addresses

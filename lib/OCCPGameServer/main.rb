@@ -15,15 +15,17 @@ module OCCPGameServer
             #Run queue for event that have been launched by a ascheduler
             @eventRunQueue = Queue.new
             
+            @STATE = WAIT
             @INBOX = Queue.new
             @db = ''
             @handlers= Array.new
             @gameclock = GameClock.new
             @scoreKeeper = Score.new
-            @interfaces = Array.new
+            
+            @interfaces = Array.new     #{:name=>'eth0', :network=>'pub1'}
             @ipPools = {}
             @nsPool = Array.new
-            @STATE = WAIT
+            @nsRegistry = IPTools::NetNSRegistry.new
         end
 
         def add_event()
@@ -62,9 +64,9 @@ module OCCPGameServer
         #
         def get_netns(networkSegment, ipaddr)
 
-            if NetAddr.validate_ip_address(ipaddr) 
+            if !@ipPools.member?(ipaddr) 
 
-                netns = NetNSRegistry.get_netns(networkSegment, ipaddr)
+                netns = @nsRegistry.get_registered_netns(networkSegment, ipaddr)
                 
             else
                 # Choose a random ip address
@@ -74,7 +76,7 @@ module OCCPGameServer
                 end
                 randIP = pool[rand(pool.length)]
 
-                netns = NetNSRegistry.get_registered_netns(networkSegment, ipaddr)
+                netns = @nsRegistry.get_registered_netns(networkSegment, randIP)
             end
 
             return netns
@@ -84,7 +86,7 @@ module OCCPGameServer
         # Release the name space when not using it
         #
         def release_netns(netnsName)
-            NetNSRegistry.release_registered_netns(netnsName)
+            @nsRegistry.release_registered_netns(netnsName)
         end
 
         def set_state(state)
@@ -136,7 +138,10 @@ module OCCPGameServer
                 }
 
             end
-
+            
+            #cleanup namespaces
+            system("ip netns list | awk '{print $0;}'| xargs -L 1 ip netns delete")
+            
             @scoreKeeper.cleanup
 
             $log.debug 'Team thread cleanup complete'

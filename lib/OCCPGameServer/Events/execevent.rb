@@ -1,7 +1,7 @@
 module OCCPGameServer
     class ExecEvent < Event
 
-    attr_accessor :command, :parameters, :address
+    attr_accessor :command, :parameters, :ipaddress
 
     def initialize(eh)
         super

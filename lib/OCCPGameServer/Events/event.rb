@@ -4,7 +4,7 @@ module OCCPGameServer
         attr_accessor :eventid, :name, :eventhandler
         attr_accessor :eventuid, :starttime, :endtime, :drift
         attr_accessor :scores, :attributes, :rollover, :frequency
-        attr_accessor :network, :poolname
+        attr_accessor :network, :ipaddress
 
         def initialize(eh)
             @scores = Array.new
