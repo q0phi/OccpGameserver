@@ -2,33 +2,46 @@
 require "test/unit"
 require_relative "../lib/OCCPGameServer/iptools"
 require "socket"
+require "log4r"
 
 class IPToolsTest < Test::Unit::TestCase
 
     def initialize( somevar )
         super
-        @listips = [ '10.24.32.123/24',
-                    '10.24.32.24/24',
-                    '10.24.32.125/24',
-                    '10.24.32.126/24',
-                    '10.24.32.77/24',
-                    '10.24.32.228/24',
-                    '10.24.32.129/24']
+        @listips = [ '10.24.32.123',
+                    '10.24.32.24',
+                    '10.24.32.125',
+                    '10.24.32.126',
+                    '10.24.32.77',
+                    '10.24.32.228',
+                    '10.24.32.129']
 
         #This directory is required to exist
         system('mkdir -p /var/run/netns')
+        $log = Log4r::Logger.new('occp::gameserver::testlog')
+        
+        #$log = Logger.new(STDOUT)
+        #$log.level = Logger::DEBUG
+
     end
 
     def test_ns_create
 
-        ifName = 'eth0'
-        ipAddr = @listips[Random.rand(7)]
+        netAddr = {}
+        netAddr[:iface] = 'eth0'
+        netAddr[:ipaddr] = @listips[Random.rand(7)]
+        netAddr[:cidr] = '24'
+        netAddr[:gateway] = nil
 
-        field1 = OCCPGameServer::IPTools.ns_create("OCCPnsTest", ifName, ipAddr)
+        begin
+            field1 = OCCPGameServer::IPTools.ns_create("OCCPnsTest", netAddr)
+        rescue ArgumentError => e
+            print e.message
+        end
 
         pR, pW = IO.pipe
         
-        command = "ip addr | grep 'inet'| grep '#{ifName}' | cut -d'/' -f1 | awk '{ print $2}'"
+        command = "ip addr | grep 'inet'| grep '#{netAddr[:iface]}' | cut -d'/' -f1 | awk '{ print $2}'"
         pid = spawn( field1.comwrap(command), :out=>pW, :err=>"/dev/null")
         
         pW.close
@@ -36,10 +49,12 @@ class IPToolsTest < Test::Unit::TestCase
        
         collectedAddress = pR.read.delete!("\n")
         pR.close
-        field1.delete
+        nsDeleted = field1.delete
         
+
+        assert_equal true, nsDeleted
         assert_equal 0, $?.exitstatus
-        assert_equal ipAddr.split('/')[0], collectedAddress
+        assert_equal netAddr[:ipaddr], collectedAddress
 
     end
     

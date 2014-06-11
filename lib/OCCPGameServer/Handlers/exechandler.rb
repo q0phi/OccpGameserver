@@ -85,7 +85,7 @@ class ExecHandler < Handler
         begin
             netNS = app_core.get_netns(netInfo) 
         rescue ArgumentError => e
-            msg "unable to create network namespace for event #{e}"
+            msg = "unable to create network namespace for event #{e}"
             print msg.red
             $log.error msg.red
         end

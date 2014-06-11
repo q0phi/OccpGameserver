@@ -24,7 +24,7 @@ module OCCPGameServer
                 @regMutex.synchronize do
                     # Check if the NS Exists
                     if @registry.member?(netNSName)
-
+                        $log.debug 'Found IP namespace in registry'
                         # increment the ref count
                         @registry[netNSName][:refcount] += 1
                         @registry[netNSName][:lastuse] = Time.now.to_f
@@ -34,6 +34,7 @@ module OCCPGameServer
                         # remove this item from the shortlist if it exists there        
                         @shortList.delete(netNSName) 
                     else
+                        $log.debug 'IP namespace not found in registry'
                         # create the ns
                         nsHandle = IPTools.ns_create(netNSName, netAddr)
 
@@ -77,9 +78,14 @@ module OCCPGameServer
                     @shortList.each do |netNS|
                         if Time.now.to_f - @registry[netNS][:lastuse] > @lifetime
                             #release the NS
-                            netns = @registry.delete(netNS)
-                            @shortList.delete(netNS)
-                            netns[:handle].delete
+                            
+                            #confirm that the system has actually removed the namespace.
+                            ret = @registry[netNS][:handle].delete
+                            if ret
+                                netns = @registry.delete(netNS)
+                                @shortList.delete(netNS)
+                            end
+
                         end
                     end
                 end
@@ -93,6 +99,7 @@ module OCCPGameServer
         #
         class NetNS 
             attr_reader :rootIF, :nsName, :ipaddr
+            @@serial = 1
             #:nsName = nsName
             #:ipaddr = ipaddr
             def initialize(nsName, netAddr)
@@ -103,59 +110,99 @@ module OCCPGameServer
                 @gateway = netAddr[:gateway]
                 @rootIF = netAddr[:iface]
 
-                #print netAddr.to_s.red
+                Log4r::NDC.set_max_depth(72)
+                Log4r::NDC.push('NetNS:')
 
-                tempIFace = "if#{rand(256)}"
+                @@serial += 1
+                tempIFace = 'xif' + @@serial.to_s 
                 
-                begin
-                    pid = spawn("ip link add link #{@rootIF} dev #{tempIFace} type macvlan mode bridge", [:out,:err]=>"/dev/null") #print("add link\n")
-                    Process.wait pid
-                    raise ArgumentError, "failed to create initial link" if $?.exitstatus != 0
+                $log.debug "Creating temporary link to interface #{rootIF}"
+                pid = spawn("ip link add link #{@rootIF} dev #{tempIFace} type macvlan mode bridge", [:out,:err]=>"/dev/null")
+                Process.wait pid
+                raise ArgumentError, "failed to create initial link #{tempIFace}" if $?.exitstatus != 0
 
-                    pid = spawn("ip netns add #{@nsName}", [:out,:err]=>"/dev/null") #print("create ns\n")
+                $log.debug "Creating namespace"
+                pid = spawn("ip netns add #{@nsName}", [:out,:err]=>"/dev/null")
+                Process.wait pid
+                if $?.exitstatus != 0
+                    #Clean the link created
+                    pid = spawn("ip link delete #{tempIFace}", [:out,:err]=>"/dev/null")
                     Process.wait pid
-                    raise ArgumentError, "failed to create namespace named: #{@nsName}" if $?.exitstatus != 0
-
-                    pid = spawn("ip link set #{tempIFace} netns #{@nsName}", [:out,:err]=>"/dev/null") #print("move link to ns\n")
-                    Process.wait pid
-                    raise ArgumentError, "failed to move interface #{tempIFace} into namespace #{@nsName} " if $?.exitstatus != 0
-                
-                    pid = spawn("ip netns exec #{@nsName} ip link set #{tempIFace} name eth0", [:out,:err]=>"/dev/null") #print("change link name\n")
-                    Process.wait pid
-                    raise ArgumentError, "failed to change local link name" if $?.exitstatus != 0
-
-                    pid = spawn("ip netns exec #{@nsName} ip addr add #{@ipDomain} dev eth0", [:out,:err]=>"/dev/null") #print("add address\n")
-                    Process.wait pid
-                    raise ArgumentError, "failed to add address #{@ipaddr} to iface" if $?.exitstatus != 0
-
-                    pid = spawn("ip netns exec #{@nsName} ip link set lo up", [:out,:err]=>"/dev/null") #print("set link up\n")
-                    Process.wait pid
-                    pid = spawn("ip netns exec #{@nsName} ip link set eth0 up", [:out,:err]=>"/dev/null") #print("set link up\n")
-                    Process.wait pid
-                    raise ArgumentError, "failed to set link active" if $?.exitstatus != 0
-                    
-                    pid = spawn("ip netns exec #{@nsName} ip route delete default", [:out,:err]=>"/dev/null") #print("rem default route\n")
-                    Process.wait pid
-                    # Optionally add a default gateway
-                    if @gateway.nil? || @gateway.empty?
-                        pid = spawn("ip netns exec #{@nsName} ip route add default via #{@ipaddr}") #print("add default route\n")
-                        Process.wait pid
-                        raise ArgumentError, "failed to set default gateway" if $?.exitstatus != 0
-                    else
-                        pid = spawn("ip netns exec #{@nsName} ip route add default via #{@gateway}") #print("add default route\n")
-                        Process.wait pid
-                        raise ArgumentError, "failed to set default gateway" if $?.exitstatus != 0
-                    
-                    end
-
-                rescue ArgumentError => e
-                    #cleanup namespace
-                    system("ip link del #{tempIFace}")
-                    system("ip netns list | awk '{print $0;}'| xargs -L 1 ip netns delete")
-                    print e.message.red
-                    exit(1)
+                    raise ArgumentError, "failed to create namespace named: #{@nsName}"
                 end
-            end
+
+                $log.debug "Moving link into namespace"
+                pid = spawn("ip link set #{tempIFace} netns #{@nsName}", [:out,:err]=>"/dev/null")
+                Process.wait pid
+                if $?.exitstatus != 0
+                    #Clean the link created
+                    pid = spawn("ip link delete #{tempIFace}", [:out,:err]=>"/dev/null")
+                    Process.wait pid
+                    #Clean the namespace created
+                    pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
+                    Process.wait pid
+                    raise ArgumentError, "failed to move interface #{tempIFace} into namespace #{@nsName} "
+                end
+            
+                $log.debug "Changing local link name"
+                pid = spawn("ip netns exec #{@nsName} ip link set #{tempIFace} name eth0", [:out,:err]=>"/dev/null")
+                Process.wait pid
+                if $?.exitstatus != 0
+                    #Clean the namespace created
+                    pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
+                    Process.wait pid
+                    raise ArgumentError, "failed to change local link name"
+                end
+
+                $log.debug "Adding address to local link in namespace"
+                pid = spawn("ip netns exec #{@nsName} ip addr add #{@ipDomain} dev eth0", [:out,:err]=>"/dev/null") #print("add address\n")
+                Process.wait pid
+                if $?.exitstatus != 0
+                    #Clean the namespace created
+                    pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
+                    Process.wait pid
+                    raise ArgumentError, "failed to add address #{@ipaddr} to iface"
+                end
+
+                $log.debug "Setting interfaces UP"
+                pid = spawn("ip netns exec #{@nsName} ip link set lo up", [:out,:err]=>"/dev/null") #print("set link up\n")
+                Process.wait pid
+                pid = spawn("ip netns exec #{@nsName} ip link set eth0 up", [:out,:err]=>"/dev/null") #print("set link up\n")
+                Process.wait pid
+                if $?.exitstatus != 0
+                    #Clean the namespace created
+                    pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
+                    Process.wait pid
+                    raise ArgumentError, "failed to set link active"
+                end
+                
+                pid = spawn("ip netns exec #{@nsName} ip route delete default", [:out,:err]=>"/dev/null") #print("rem default route\n")
+                Process.wait pid
+                # Optionally add a default gateway
+                if @gateway.nil? || @gateway.empty?
+                    $log.debug "Adding default gateway via own ip address"
+                    pid = spawn("ip netns exec #{@nsName} ip route add default via #{@ipaddr}") #print("add default route\n")
+                    Process.wait pid
+                    if $?.exitstatus != 0
+                        #Clean the namespace created
+                        pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
+                        Process.wait pid
+                        raise ArgumentError, "failed to set default gateway"
+                    end
+                else
+                    $log.debug "Adding default gateway via #{@gateway}"
+                    pid = spawn("ip netns exec #{@nsName} ip route add default via #{@gateway}") #print("add default route\n")
+                    Process.wait pid
+                    if $?.exitstatus != 0
+                        #Clean the namespace created
+                        pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
+                        Process.wait pid
+                        raise ArgumentError, "failed to set default gateway"
+                    end
+                
+                end
+
+            end #END NetNS initialize
             
             ##
             # Wrap a command with a namespace context
@@ -188,7 +235,7 @@ module OCCPGameServer
         # Create a network namespace for the provided interface and IPv4 address
         #
         def self.ns_create(nsName, netAddr)
-
+            $log.debug "Creating namespace for #{nsName}"
             #check if the name or ip has been issued
             raise ArgumentError if system("ip netns list | grep -i #{nsName}") == 0
             NetNS.new(nsName, netAddr)
@@ -204,7 +251,7 @@ module OCCPGameServer
             #number += 1
 
             require 'set'
-            #require 'simple-random'
+            require 'simple-random'
 
             sr = SimpleRandom.new
             sr.set_seed()
