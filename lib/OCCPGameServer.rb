@@ -48,10 +48,12 @@ module OCCPGameServer
         XML.default_line_numbers = true
         doc = instance_parser.parse
 
+        userMenu = HighLine.new
+
         #Do something with challenge metadata
         scenario_node = doc.find('/occpchallenge/scenario/name').first
         if scenario_node.nil? or scenario_node.content.length <1 then
-            $log.error('Instance File Error: Challenge name cannot be blank')
+            $log.warn("Error found in file #{instancefile}: #{scenario_node.line_num.to_s} - scenario name should not be blank".yellow)
         else
             scenario_name = scenario_node.content
             $log.info 'Scenario Name: ' + scenario_name
@@ -64,10 +66,41 @@ module OCCPGameServer
 
         #Setup the game clock
         length_node = doc.find('/occpchallenge/scenario/length').first
-       
+        #Error check
+        recover = false
+        if not length_node.nil? then
+            if length_node["time"] then
+                scenarioLength = Integer(length_node["time"]) rescue nil
+                if not scenarioLength.is_a? Integer then
+                    recover = true
+                end
+                if length_node["format"] then
+                    scenarioLengthFormat = length_node["format"].to_s
+                    if not ["seconds", "minutes", "hours"].include?(scenarioLengthFormat) then
+                        recover = true
+                    end
+                else
+                    recover = true
+                end
+            else
+                recover = true
+            end
+        else
+            recover = true
+        end
+      
+        # Ask the user to intervene if the file is corrupt
+        # TODO Only ask the user if the mode is interactive
+        if recover then
+            $log.error("Error found in file #{instancefile}: #{scenario_node.line_num.to_s} - scenario length not defined".red)
+            userMenu.say("Scenario length is not defined correctly!")
+            scenarioLength = userMenu.ask("Enter scenario length in minutes? ", Integer)
+            scenarioLengthFormat = "minutes"
+        end
+
         main_runner.gameclock = GameClock.new
-        main_runner.gameclock.set_gamelength(length_node["time"],length_node["format"])
-        $log.info "Game Length: " + main_runner.gameclock.gamelength.to_s
+        main_runner.gameclock.set_gamelength(scenarioLength, scenarioLengthFormat)
+        $log.info "Game Length: " + main_runner.gameclock.gamelength.to_s + " seconds"
 
         main_runner.networkid = doc.find('/occpchallenge/scenario/networkid').first["number"]
         $log.info "Network ID: " + main_runner.networkid
@@ -260,8 +293,8 @@ module OCCPGameServer
 
     #Setup and parse command line parameters
     $options = {}
-    $options[:logfile] = "gamelog.log"
-    $options[:datafile] = "gamedata.db"# + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
+    $options[:logfile] = "gamelog.txt" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".txt"
+    $options[:datafile] = "gamedata.db" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
 
     opt_parser = OptionParser.new do |opt|
         opt.banner = "Usage: gameserver"
@@ -271,7 +304,7 @@ module OCCPGameServer
         opt.separator "$options"
 
         opt.on("-l","--logfile filename", "create the logfile using the given name") do |logfile|
-            filename = "gamelog.txt" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".txt"
+            filename = $options[:logfile]
             if File.directory?(logfile)
                 $options[:logfile] = File.join(logfile,filename)
             else    
@@ -284,7 +317,7 @@ module OCCPGameServer
         end
         
         opt.on("-s","--database filename", "game record database") do |datafile|
-            filename = "gamedata.db" #-" + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
+            filename = $options[:datafile] 
             
             if File.directory?(datafile)
                 fp = File.join(datafile,filename)

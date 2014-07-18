@@ -7,8 +7,11 @@
         <type>Network Defense</type>
         <description>Blue team defends the network against automated Red team attacks. This scenario focuses on protecting against weak passwords and unused services.</description>
 
-        <!-- Length of time to run this scenario in seconds -->
-        <length time="60" />
+        <!-- Length of time to run this scenario
+             time int
+             format {seconds, minutes, hours} 
+        -->
+        <length time="60" format="seconds" />
 
         <!-- UNUSED Recommended virtual target network -->
         <networkid number="1" />
