@@ -7,21 +7,21 @@
         <type>Network Defense</type>
         <description>Blue team defends the network against automated Red team attacks. This scenario focuses on protecting against weak passwords and unused services.</description>
 
-        <!-- Length of time to run this scenario -->
-        <length format="minutes"
-                time="30" />
+        <!-- Length of time to run this scenario in seconds -->
+        <length time="60" />
 
-        <!-- Recommended virtual target network -->
+        <!-- UNUSED Recommended virtual target network -->
         <networkid number="1" />
 
+        <!-- Users for the web services console -->
         <users>
             <user name="moderator" pass="token"/>
             <user name="blueplayer" pass="token"/>
             <user name="spectator" pass="token"/>
         </users>
 
-        <!-- When a user logs in to the system the components that are displayed are 
-             defined in these sections -->
+        <!-- When a user logs in to the system the components that are displayed are defined in these sections
+             TODO implement usage -->
         <user-interfaces>
             <user-interface name="spectator-ui"
                             show-scoreboard="true"
@@ -43,24 +43,31 @@
             </user-interface>
         </user-interfaces>
         
-        <!-- Score groups labels allow certain events to be grouped together for score calculation -->
-        <!--  -->
+        <!-- Score groups labels allow certain events to be grouped together for score calculation 
+             Labels do require any special string. SQL expressions must return a single row and value. 
+             If more than one row is returned only the first row is used -->
         <score-labels>
-            <score-label name="group1" select="SUM(value)" where="groupname='group1' AND time > (time('now') - 30)"/>
-            <score-label name="group2" sql="SELECT SUM(value) FROM SCORE WHERE groupname='group2' AND time > (time('now') - 300)"/>
-            <score-label name="group3" />
-            <score-label name="group4" sql='SELECT SUM(value) FROM SCORE WHERE groupname="group4"'/>
-            <score-label name="group5" /> 
+            <!-- Example Default query if none provided -->
+            <score-label name="group1" sql="SELECT SUM(value) FROM SCORE WHERE groupname='group1'"/>
+            <!-- Example Additional WHERE clause parameters create a 5 minute sliding window -->
+            <score-label name="webserverstatus" sql="SELECT SUM(value) FROM SCORE WHERE groupname='webserverstatus' AND time > (time('now') - 300)"/>
+            <!-- Example Default sum query is used -->
+            <score-label name="redteam" />
+            <score-label name="blueteam" />
+            <!-- Example Query may use any columns in the score table-->
+            <score-label name="teamtotal" sql='SELECT SUM(value) FROM SCORE WHERE groupname!="webserverstatus"'/> 
         </score-labels>
 
+        <!-- Scores are calculated by making calculations from the groups of the labels above -->
+        <!-- Each score-name is treated as ERb template; use score-label as variables in calculation-->
         <score-names>
-                <!-- score names are treated as ERb templates; use score labels as variables in calculation-->
-                <score-name name="red-team" descr="Red Team" formula="group1 - group2 + group3" />
-                <score-name name="blue-team" descr="Blue Team" formula="group4 + group5 - group3" />
-                <score-name name="service-level" descr="Service Level" formula="group1 + group2 + group5" />
+                <score-name name="red-team" descr="Red Team" formula="group1 - webserverstatus + redteam" />
+                <score-name name="blue-team" descr="Blue Team" formula="blueteam + webserverstatus - redteam" />
+                <score-name name="service-level" descr="Service Level" formula="group1 + webserverstatus + teamtotal" />
         </score-names>
 
-        <!-- Scoreboard show a particular calculation of a group of scores -->
+        <!-- Scoreboards show a particular grouping of scores to user accts with permission -->
+        <!-- This section is used by the web interfaces -->
         <scoreboards>
             <scoreboard name="moderator-board" update-rate="live">
                 <score-name name="red-team" />
@@ -92,7 +99,22 @@
         <interface name="eth1" network="prvt"  />
         <interface name="eth2" network="int" />
     </host>
+
+    <!-- IP pools describe pools of ip addresses that an event can appear to be coming from. These are useful
+         for allocating to zombie traffic where the particular source address does not matter. 
+         Each pool has the following attributes -->
     <ip-pools>
+        <!-- Simplest definition is a list of one address. 
+             Lists are comma separated IPv4 addresses. -->
+        <pool name="int_2" network="prvt" cidr="24" gateway="">
+            <address type="list">10.3.3.2</address>
+        </pool>
+        <!-- A range is defined by a  CIDR denoted address block
+             count is the number of addresses to add to the pool-->
+        <pool name="int_1" network="prvt" cidr="24" gateway="">
+            <address type="range" count="12" addr="10.24.15.0/24" select="asc" />
+            <address type="list">10.3.3.2, 10.3.3.3, 128.15.23.4, 143.34.21.9</address>
+        </pool>
         <pool name="pub_1" network="prvt" cidr="24" gateway="" >
             <address type="range" count="9" addr="16.0.0.0/8" select="asc" />
             <address type="range" count="23" addr="78.3.0.0/24" select="asc" />
@@ -100,13 +122,6 @@
         </pool>
         <pool name="prvt_1" network="prvt" cidr="24" gateway="">
             <address type="range" count="11" addr="87.15.0.0/20" select="asc" />
-        </pool>
-       <pool name="int_1" network="prvt" cidr="24" gateway="">
-            <address type="range" count="12" addr="10.24.15.0/24" select="asc" />
-            <address type="list">10.3.3.2, 10.3.3.3, 128.15.23.4, 143.34.21.9</address>
-        </pool>
-        <pool name="int_2" network="prvt" cidr="24" gateway="">
-            <address type="list">10.3.3.2</address>
         </pool>
    </ip-pools>
     <!-- Identify each location that team processes will execute.

@@ -254,7 +254,10 @@ module OCCPGameServer
         return main_runner
 
     end
-    
+   
+
+    #TODO Move names into debug space
+
     #Setup and parse command line parameters
     $options = {}
     $options[:logfile] = "gamelog.log"

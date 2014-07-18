@@ -92,7 +92,9 @@ class ExecHandler < Handler
 
         # Prep the events command
         newCom = netNS.comwrap(event.command)
-        
+
+
+        #TODO Optimize command speci;lization to arrays
         begin
             # run the provided command
             #puts event.name + event.command.to_s
