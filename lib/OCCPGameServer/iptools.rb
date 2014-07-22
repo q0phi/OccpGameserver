@@ -103,6 +103,9 @@ module OCCPGameServer
             #:nsName = nsName
             #:ipaddr = ipaddr
             def initialize(nsName, netAddr)
+                Log4r::NDC.set_max_depth(72)
+                Log4r::NDC.push('NetNS:')
+                
                 @nsName = nsName
                 
                 @ipaddr = netAddr[:ipaddr]
@@ -110,9 +113,12 @@ module OCCPGameServer
                 @gateway = netAddr[:gateway]
                 @rootIF = netAddr[:iface]
 
-                Log4r::NDC.set_max_depth(72)
-                Log4r::NDC.push('NetNS:')
-
+                #Set the master interface into promisc mode so we can receive replies for the fake-interface
+                pid = spawn("ip link set #{@rootIF} promisc on", [:out,:err]=>"/dev/null")
+                Process.wait pid
+                raise ArgumentError, "failed to set link #{@rootIF} to promisc mode" if $?.exitstatus != 0
+                
+                # This helps not repeating the temp interface names
                 @@serial += 1
                 tempIFace = 'xif' + @@serial.to_s 
                 
@@ -148,7 +154,7 @@ module OCCPGameServer
                 pid = spawn("ip netns exec #{@nsName} ip link set #{tempIFace} name eth0", [:out,:err]=>"/dev/null")
                 Process.wait pid
                 if $?.exitstatus != 0
-                    #Clean the namespace created
+                    #Clean the namespace created; this auto-deletes the link created earlier
                     pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
                     Process.wait pid
                     raise ArgumentError, "failed to change local link name"
@@ -191,6 +197,16 @@ module OCCPGameServer
                     end
                 else
                     $log.debug "Adding default gateway via #{@gateway}"
+                    # The gateway must be on this link, but might be in a different subnet
+                    pid = spawn("ip netns exec #{@nsName} ip route add #{@gateway} dev eth0") #print("add default route\n")
+                    Process.wait pid
+                    if $?.exitstatus != 0
+                        #Clean the namespace created
+                        pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
+                        Process.wait pid
+                        raise ArgumentError, "failed to set gateway as link local"
+                    end
+                    
                     pid = spawn("ip netns exec #{@nsName} ip route add default via #{@gateway}") #print("add default route\n")
                     Process.wait pid
                     if $?.exitstatus != 0
