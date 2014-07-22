@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <occpchallenge>
     <!-- Describe the current scenario; instance data can ovveride this section -->
-    <scenario>
-        <gameid id="1" />
-        <name>Red Team vs. Blue Team</name>
-        <type>Network Defense</type>
-        <description>Blue team defends the network against automated Red team attacks. This scenario focuses on protecting against weak passwords and unused services.</description>
+    <scenario gameid="1" 
+        name="Red Team vs. Blue Team"
+        type="Network Defense"
+        description="Blue team defends the network against automated Red team attacks. This scenario focuses on protecting against weak passwords and unused services.">
 
         <!-- Length of time to run this scenario
              time int
              format {seconds, minutes, hours} 
         -->
-        <length time="60" format="seconds" />
+        <length time="10" format="seconds" />
 
         <!-- UNUSED Recommended virtual target network -->
         <networkid number="1" />
@@ -92,23 +91,24 @@
 
     </scenario>
 
-    <!-- Instance data overrides the scenario section -->
-    <instance>    
-        <length format="seconds">00:30:00</length>
-    </instance>
-
+    <!-- Host describes the machine that is running the gameserver software. 
+         Each network port to be used must be named and listed to be used in events.
+         -->
     <host label="gameserver" hostname="gameserver">
         <interface name="eth0" network="pub" />
         <interface name="eth1" network="prvt"  />
         <interface name="eth2" network="int" />
     </host>
 
-    <!-- IP pools describe pools of ip addresses that an event can appear to be coming from. These are useful
+    <!-- IP pools describe pools of ip addresses that an event can use as source addresses. These are useful
          for allocating to zombie traffic where the particular source address does not matter. 
-         Each pool has the following attributes -->
+         Each pool has the following attributes
+         
+         Each pool will only can unique addresses. If pool definition specifies overlapping addresses only one address
+         is used in the pool. -->
     <ip-pools>
         <!-- Simplest definition is a list of one address. 
-             Lists are comma separated IPv4 addresses. -->
+             Lists are comma separated IPv4 addresses of the format X.X.X.X with no CIDR. -->
         <pool name="int_2" network="prvt" cidr="24" gateway="">
             <address type="list">10.3.3.2</address>
         </pool>
@@ -126,11 +126,13 @@
         <pool name="prvt_1" network="prvt" cidr="24" gateway="">
             <address type="range" count="11" addr="87.15.0.0/20" select="asc" />
         </pool>
-   </ip-pools>
-    <!-- Identify each location that team processes will execute.
+    </ip-pools>
+    
+    <!-- NOT USED, RESERVED FOR FEDERATION.
+         Identify each location that team processes will execute.
          Each of these locations needs to be contacted to dispatch the appropriate team code to. 
          These hosts need to specified in the host section. -->
-    <team-hosts>
+    <!-- <team-hosts>
         <team-host name="Local"
                      hostname="localhost"
                      ip-addr="127.0.0.1"
@@ -140,10 +142,13 @@
                      ip-addr="0.0.0.0"
                      port="24365" />
     </team-hosts>
-   
-    <!-- Identify the handlers needed to run events -->
-    <event-handlers>
+   -->
 
+    <!-- Identify the handlers needed to run events 
+         name - is locally referenced in the instance file only
+         class-handler - must specifiy the Class name of the handler
+    -->
+    <event-handlers>
         <handler name="exec-handler-1" 
                     class-handler="ExecHandler" />
         <handler name="metasploit-handler-1"
@@ -151,16 +156,10 @@
                     server-hostname="host1"
                     server-ip=""
                     server-port="" />
-
-        <!-- More than one location could be used to launch events 
-        <handler name="metasploit-handler-2"
-                 class-handler="metasploit-handler"
-                 server-hostname="host2"
-                 server-ip=""
-                 server-port="" /> -->
-
     </event-handlers>
 
+    <!-- Team describes a collection of events for orgizational structure 
+         name - the friendly name of the team -->
     <team name="Blue Team">
     
         <!-- Identifies the name of the location to dispatch this team to -->

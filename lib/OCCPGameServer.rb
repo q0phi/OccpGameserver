@@ -51,11 +51,11 @@ module OCCPGameServer
         userMenu = HighLine.new
 
         #Do something with challenge metadata
-        scenario_node = doc.find('/occpchallenge/scenario/name').first
-        if scenario_node.nil? or scenario_node.content.length <1 then
-            $log.warn("Error found in file #{instancefile}: #{scenario_node.line_num.to_s} - scenario name should not be blank".yellow)
+        scenario_node = doc.find('/occpchallenge/scenario').first
+        if scenario_node.nil? then
+            $log.warn("Error found in file #{instancefile}: #{scenario_node.line_num.to_s} - scenario section not defined".yellow)
         else
-            scenario_name = scenario_node.content
+            scenario_name = scenario_node["name"]
             $log.info 'Scenario Name: ' + scenario_name
         end
 
@@ -66,32 +66,14 @@ module OCCPGameServer
 
         #Setup the game clock
         length_node = doc.find('/occpchallenge/scenario/length').first
-        #Error check
-        recover = false
-        if not length_node.nil? then
-            if length_node["time"] then
-                scenarioLength = Integer(length_node["time"]) rescue nil
-                if not scenarioLength.is_a? Integer then
-                    recover = true
-                end
-                if length_node["format"] then
-                    scenarioLengthFormat = length_node["format"].to_s
-                    if not ["seconds", "minutes", "hours"].include?(scenarioLengthFormat) then
-                        recover = true
-                    end
-                else
-                    recover = true
-                end
-            else
-                recover = true
+        begin
+            #Error check
+            scenarioLength = Integer(length_node["time"])
+            scenarioLengthFormat = length_node["format"].to_s
+            if not ["seconds", "minutes", "hours"].include?(scenarioLengthFormat) then
+                throw ArgumentError
             end
-        else
-            recover = true
-        end
-      
-        # Ask the user to intervene if the file is corrupt
-        # TODO Only ask the user if the mode is interactive
-        if recover then
+        rescue Exception=>e
             $log.error("Error found in file #{instancefile}: #{scenario_node.line_num.to_s} - scenario length not defined".red)
             userMenu.say("Scenario length is not defined correctly!")
             scenarioLength = userMenu.ask("Enter scenario length in minutes? ", Integer)
@@ -110,6 +92,7 @@ module OCCPGameServer
         doc.find('host').each do |host|
             hostAttrs = host.attributes.to_h.inject({}){ |lh,(k,v)| lh[k.to_sym] = v; lh }
             if hostAttrs[:label] == "gameserver"
+                $log.debug "gameserver Host tag found at: #{instancefile}: #{host.line_num.to_s}"
                 host.find('interface').each do |interface|
                     main_runner.interfaces << interface.attributes.to_h.inject({}){ |lh,(k,v)| lh[k.to_sym] = v; lh }
                 end
@@ -133,7 +116,7 @@ module OCCPGameServer
                     when 'range' 
                         poolHash[:addresses] += IPTools.generate_address_list(addrHash)
                     when 'list'
-                        #decode the JSON content array
+                        # Decode the content block as CSV addresses
                         if !addrDef.empty?
                             addrArray = addrDef.content.split(',')
                             addrArray.each do |addr|
@@ -155,17 +138,17 @@ module OCCPGameServer
             main_runner.ipPools.merge!(poolHash[:name] => poolHash)
         end
 
-        #Register the team host locations (minimally localhost)
-        team_node = doc.find('/occpchallenge/team-hosts').first
-        team_node.each_element do |element| 
-            el_hash = element.attributes.to_h
-            el_hash = el_hash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
+   #    # Register the team host locations (minimally localhost)
+   #      team_node = doc.find('/occpchallenge/team-hosts').first
+   #      team_node.each_element do |element| 
+   #          el_hash = element.attributes.to_h
+   #          el_hash = el_hash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
 
-            # Setup the team host in the MP registry 
-            $log.info "New Team Host: " + el_hash[:name]
+   #          # Setup the team host in the MP registry 
+   #          $log.info "New Team Host: " + el_hash[:name]
 
-            main_runner.add_host(el_hash)
-        end
+   #          main_runner.add_host(el_hash)
+   #      end
            
                 
         #Instantiate the event-handlers for this scenario
@@ -181,9 +164,8 @@ module OCCPGameServer
                 main_runner.add_handler(handler_class)
 
             rescue
-               error = "Handler Not Found: " + el_hash[:"class-handler"]
+               error = "Handler Not Found: " + el_hash[:"class-handler"] + " class file may be missing."
                $log.warn(error)
-
             end
            
         }
@@ -297,12 +279,14 @@ module OCCPGameServer
     $options[:datafile] = "gamedata.db" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
 
     opt_parser = OptionParser.new do |opt|
-        opt.banner = "Usage: gameserver"
+        opt.banner = "Usage: occpgs --instance-file instance.xml [options]"
         opt.separator ""
-        opt.separator "Commands"
-        opt.separator ""
-        opt.separator "$options"
+        opt.separator "Options"
 
+        opt.on("-f","--instance-file filename", "game configuration file") do |gamefile|
+            $options[:gamefile] = File.expand_path( gamefile, Dir.getwd) # File.dirname(__FILE__))
+        end
+        
         opt.on("-l","--logfile filename", "create the logfile using the given name") do |logfile|
             filename = $options[:logfile]
             if File.directory?(logfile)
@@ -312,10 +296,6 @@ module OCCPGameServer
             end
         end
 
-        opt.on("-f","--instance-file filename", "game configuration file") do |gamefile|
-            $options[:gamefile] = File.expand_path( gamefile, Dir.getwd) # File.dirname(__FILE__))
-        end
-        
         opt.on("-s","--database filename", "game record database") do |datafile|
             filename = $options[:datafile] 
             
@@ -334,6 +314,12 @@ module OCCPGameServer
 
         opt.on("-h","--help", "help") do
             puts opt_parser
+        end
+        opt.on_tail("--version", "Show version") do
+            puts "Open Cyber Challenge Platform"
+            puts "http://www.opencyberchallenge.net"
+            puts "Gameserver Application Version  occpgs-#{OCCPGameServer::VERSION}"
+            exit
         end
     end
 
@@ -367,7 +353,7 @@ module OCCPGameServer
             $db = SQLite3::Database.new($options[:datafile])
 
             #pre-populate the table structure
-            dbschema = File.open('schema.sql', 'r')
+            dbschema = File.open(File.dirname(__FILE__)+'/../schema.sql', 'r')
             
             $db.execute_batch dbschema.read
         

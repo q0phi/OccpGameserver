@@ -244,6 +244,7 @@ module OCCPGameServer
 
         ##
         # Generate an array of subnet addresses
+        # Possibly Deprecated?
         #
         def self.gen_ip_block(number)
 
@@ -299,6 +300,7 @@ module OCCPGameServer
 
             sizeOf = aSpace.size
             count = 0
+            raise ArgumentError,"CIDR ip pool size is smaller than requested count of addresses" if addrDef[:count].to_i > sizeOf
             while count < addrDef[:count].to_i && list.length < sizeOf - 2 do
 
                 newAddr = aSpace.nth(rand(sizeOf))
