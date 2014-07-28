@@ -270,24 +270,26 @@ module OCCPGameServer
 
     end
    
-
-    #TODO Move names into debug space
+    log = Log4r::Logger.new('occp')
+    loglevels = log.levels.inject(' ') {|accum, item| accum += "#{log.levels.index(item)}=#{item} "}
 
     #Setup and parse command line parameters
     $options = {}
     $options[:logfile] = "gamelog.txt" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".txt"
+    $options[:loglevel] = 2 
     $options[:datafile] = "gamedata.db" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
 
     opt_parser = OptionParser.new do |opt|
         opt.banner = "Usage: occpgs --instance-file instance.xml [options]"
         opt.separator ""
-        opt.separator "Options"
-
-        opt.on("-f","--instance-file filename", "game configuration file") do |gamefile|
+        opt.separator "Required:"
+        opt.on("-f","--instance-file filename", "Scenario configuration file") do |gamefile|
             $options[:gamefile] = File.expand_path( gamefile, Dir.getwd) # File.dirname(__FILE__))
         end
         
-        opt.on("-l","--logfile filename", "create the logfile using the given name") do |logfile|
+        opt.separator "Optional:"
+        opt.separator ""
+        opt.on("-l","--logfile filename", "File name of log file") do |logfile|
             filename = $options[:logfile]
             if File.directory?(logfile)
                 $options[:logfile] = File.join(logfile,filename)
@@ -296,7 +298,21 @@ module OCCPGameServer
             end
         end
 
-        opt.on("-s","--database filename", "game record database") do |datafile|
+        opt.on("--log-level integer", Integer, "Set the verbosity level of the log file,", "[#{loglevels}]") do |loglevel|
+            if not loglevel.nil?
+                begin
+                    Log4r::Log4rTools.validate_level(loglevel) 
+                    $options[:loglevel] = loglevel
+                rescue
+                    levels = Log4r::Log4rTools.max_level_str_size
+                    puts "Log level not in [#{loglevels}]"
+                    exit
+                end
+            end
+                
+        end
+
+        opt.on("-d","--database filename", "File name of the database for event and score records") do |datafile|
             filename = $options[:datafile] 
             
             if File.directory?(datafile)
@@ -312,9 +328,12 @@ module OCCPGameServer
 
         end
 
-        opt.on("-h","--help", "help") do
-            puts opt_parser
+        opt.separator ""
+        opt.on_tail("-h","--help", "Show this help information") do
+            puts opt
+            exit
         end
+        
         opt.on_tail("--version", "Show version") do
             puts "Open Cyber Challenge Platform"
             puts "http://www.opencyberchallenge.net"
@@ -323,13 +342,20 @@ module OCCPGameServer
         end
     end
 
-    opt_parser.parse!
+    begin
+        opt_parser.parse!
+    rescue OptionParser::MissingArgument, OptionParser::InvalidArgument=>e
+        puts e.message
+        puts opt_parser
+        exit
+    end
 
 
+    #Setup default logging
+    $log = Log4r::Logger.new('occp::gameserver::instancelog', $options[:loglevel])
+    #$log.trace = true
 
-    #Setup default logging or use given log file name
-    $log = Log4r::Logger.new('occp::gameserver::instancelog')
-  # $log.trace = true
+    # Output to the filepath given
     fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => $options[:logfile]})
     fileoutputter.formatter = Log4r::PatternFormatter.new(:pattern => "[%l] %d %x %m")
     
