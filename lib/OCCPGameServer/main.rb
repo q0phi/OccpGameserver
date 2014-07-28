@@ -144,8 +144,12 @@ module OCCPGameServer
 
             end
             
-            #cleanup namespaces
-            system("ip netns list | awk '{print $0;}'| xargs -L 1 ip netns delete")
+            # Cleanup network namespaces; Add a single namespace to supress error if none specified
+            #system("ip netns list | awk '{print $0;}'| xargs -L 1 ip netns delete")
+            pid = spawn("ip netns add occp_cleanup")
+            Process.wait pid
+            pid = spawn("ip netns list | grep occp_ | xargs -L 1 ip netns delete")
+            Process.wait pid
             
             @scoreKeeper.cleanup
 
@@ -214,7 +218,7 @@ module OCCPGameServer
 
                 when 'STATUS'
                     @teams.each { |team|
-                            team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'STATUS', :msg=>{}})
+                            team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'STATUS'})
                     }
 
                 when 'DIE'
