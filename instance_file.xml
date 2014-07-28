@@ -10,7 +10,7 @@
              time int
              format {seconds, minutes, hours} 
         -->
-        <length time="10" format="seconds" />
+        <length time="15" format="seconds" />
 
         <!-- UNUSED Recommended virtual target network -->
         <networkid number="1" />

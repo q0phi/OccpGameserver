@@ -38,6 +38,7 @@ module OCCPGameServer
     READY = 2
     RUN = 3
     STOP = 4
+    QUIT = 5
 
     include LibXML
 
@@ -348,7 +349,6 @@ module OCCPGameServer
         exit
     end
 
-
     #Setup default logging
     $log = Log4r::Logger.new('occp::gameserver::instancelog', $options[:loglevel])
     #$log.trace = true
@@ -388,80 +388,94 @@ module OCCPGameServer
             #main_runner.db = db
 
         rescue SQLite3::Exception => e
-
             $log.error("Database Initiation Error")
             $log.error( e )
-        
         end
 
         # Process the instance file and get the app core class
         $appCore = instance_file_parser($options[:gamefile])
 
         #Launch the main application
-        main = Thread.new { $appCore.run }
-    
+        main = Thread.new { $appCore.run() }
+   
         #Setup the menuing system
         highL = HighLine.new
         highL.page_at = :auto
 
-        #system('clear')
+        # Handle user terminal
+        userInterface = Thread.new {
+            exitable = false
+            while not exitable do
+                highL.choose do |menu|
+                    menu.header = "==================================\nSelect from the list below"
+                    menu.choice(:Status) {
+                        highL.say("==================================\n")
+                        
+                        # Notify the system to emit status messages
+                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
+                        
+                        currentStatus = $appCore.STATE
+                        case currentStatus
+                            when RUN
+                                highL.say("All Teams are Running")
+                            when WAIT
+                                highL.say("Teams are Paused")
+                            when STOP
+                                highL.say("Game is Stopped")
+                        end
 
-        # Handle user tty
-        exitable = false
-        while not exitable do
-            highL.choose do |menu|
-                menu.header = "==================================\nSelect from the list below"
-                menu.choice(:Status) {
-                    highL.say("==================================\n")
-                    
-                    # Notify the system to emit status messages
-                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
-                    
-                    currentStatus = $appCore.STATE
-                    case currentStatus
-                        when RUN
-                            highL.say("All Teams are Running")
-                        when WAIT
-                            highL.say("Teams are Paused")
-                    end
+                        gTime = Time.at($appCore.gameclock.gametime).utc.strftime("%H:%M:%S")
+                        gLength = Time.at($appCore.gameclock.gamelength).utc.strftime("%H:%M:%S")
+                        highL.say("Current Gametime is: #{gTime} of #{gLength}")
 
-                    gTime = Time.at($appCore.gameclock.gametime).utc.strftime("%H:%M:%S")
-                    gLength = Time.at($appCore.gameclock.gamelength).utc.strftime("%H:%M:%S")
-                    highL.say("Current Gametime is: #{gTime} of #{gLength}")
+                        $appCore.scoreKeeper.get_names.each{ |scoreName|
+                            highL.say(scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s )
+                        }
 
-                    $appCore.scoreKeeper.get_names.each{ |scoreName|
-                        highL.say(scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s )
+                        
                     }
+                    menu.choice(:"Start"){
+                        highL.say("==================================\n")
+                        currentStatus = $appCore.STATE
+                        case currentStatus
+                        when STOP
+                            highL.say("Game is Stopped. Only Status can be shown.")
+                        else
+                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
+                        end
+                    }
+                    menu.choice(:"Pause"){
+                        highL.say("==================================\n")
+                        currentStatus = $appCore.STATE
+                        case currentStatus
+                        when STOP
+                            highL.say("Game is Stopped. Only Status can be shown.")
+                        else
+                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
+                        end
+                    }
+                    menu.choice(:"Clear Screen") {
+                        system("clear")
+                    }
+                    menu.choice(:Quit) {
+                        #if highL.agree("Confirm exit? ", true)
+                            highL.say("Exiting...")
+                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> QUIT}})
+                            exitable = true
+                        #end
+                    }
+                    menu.prompt = "Enter Selection: "
+                end
 
-                    
-                }
-                menu.choice(:"Start"){
-                    #$appCore.set_state(Main::RUN)
-                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
-                }
-                menu.choice(:"Pause"){
-                    #$appCore.set_state(Main::WAIT)
-                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
-                }
-                menu.choice(:"Clear Screen") {
-                    system("clear")
-                }
-                menu.choice(:Quit) {
-                    #if highL.agree("Confirm exit? ", true)
-                        highL.say("Exiting...")
-                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
-                        exitable = true
-                    #end
-                }
-                menu.prompt = "Enter Selection: "
             end
-
-        end
-
-        main.join
-
-        #Cleanup and Close Files
+        }
         
+         
+        # Wait for Children to exit
+        userInterface.join
+        main.join
+        
+        #Cleanup and Close Files
         $db.close
 
         $log.info "GameServer shutdown complete"
@@ -472,7 +486,5 @@ module OCCPGameServer
         #Open listening socket and wait...
 
     end
-    
-    
     
 end

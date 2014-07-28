@@ -41,9 +41,17 @@ module OCCPGameServer
                 @lastreadtime = Time.now
                 @clockstate = :running
             end
+            @watchdog = Thread.new { 
+                sleep(@gamelength-@gametime) 
+                $appCore.INBOX << GMessage.new({:fromid=>'Watchdog',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
+                puts "Game time Expired!"
+            }
         end
 
         def pause
+            if @watchdog.alive?
+                @watchdog.kill
+            end
             @mutex.synchronize do
                 @gametime = Time.now - @lastreadtime + @gametime
                 @clockstate = :paused
@@ -63,7 +71,6 @@ module OCCPGameServer
                 @gametime
             end
         end
-
 
     end
 

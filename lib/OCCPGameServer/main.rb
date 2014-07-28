@@ -97,27 +97,32 @@ module OCCPGameServer
         def set_state(state)
             
             case state
-                when WAIT
-                    if @STATE == RUN
-                        $log.info 'Instance PAUSE Triggered'.yellow
-                        @teams.each { |team|
-                            team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
-                        }
-                        @gameclock.pause
-                    end
-                when RUN
-                    @gameclock.resume
+            when WAIT
+                if @STATE == RUN
+                    $log.info 'Instance PAUSE Triggered'.yellow
                     @teams.each { |team|
-                            team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
-                            #team.set_state(state)
+                        team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
                     }
-                    $log.info 'Instance RESUME Triggered'.yellow
-                when STOP
-                    #Clean everything up and signal all process to stop
-                    @teams.each { |team|
-                            team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
-                    }
-                    exit_cleanup()
+                    @gameclock.pause
+                end
+            when RUN
+                @gameclock.resume
+                @teams.each { |team|
+                    team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
+                    #team.set_state(state)
+                }
+                $log.info 'Instance RESUME Triggered'.yellow
+            when STOP
+                #Clean everything up and signal all process to stop
+                @teams.each { |team|
+                    team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
+                }
+                @gameclock.pause
+            when QUIT
+                @teams.each { |team|
+                    team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
+                }
+                exit_cleanup()
 
             end
             
@@ -127,6 +132,7 @@ module OCCPGameServer
         def get_state()
             return @STATE
         end
+        
         #Cleanup any residuals and wait for related threads to shutdown nicely
         def exit_cleanup()
 
@@ -154,13 +160,14 @@ module OCCPGameServer
             @scoreKeeper.cleanup
 
             $log.debug 'Team thread cleanup complete'
+            
             Thread.exit
         end
  
         # Entry point for the post-setup code
         def run ()
             Log4r::NDC.push('Main:')
-
+            
             #Launch each teams scheduler
             @teams.each { |team|
                 if team.teamhost == "localhost" 
@@ -168,10 +175,8 @@ module OCCPGameServer
                 else
                     #lookup the connection information for this team and dispatch the team
                 end
-
             }
 
-            
             #Poll the @INBOX waiting for tasks
             while message = @INBOX.pop do
 
@@ -231,11 +236,8 @@ module OCCPGameServer
 
             #wait for all the teams to finish
             @localteams.each { |team| team[:thr].join }
-            #@taskmaster.join
 
         end #def run
-
-
 
     end #Class
   
