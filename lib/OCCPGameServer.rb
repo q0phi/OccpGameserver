@@ -212,7 +212,7 @@ module OCCPGameServer
                 }
 
             rescue ArgumentError => e
-                $log.error(e.to_s.red)
+                $log.fatal(e.to_s.red)
                 puts e.to_s.red
                 exit(1)
             else
@@ -248,7 +248,7 @@ module OCCPGameServer
             rescue SQLite3::SQLException, ArgumentError => e
                 msg = 'Error found in file '+ instancefile + ':' + label.line_num.to_s + ' - ' + e.to_s
                 puts msg.red
-                $log.error msg.red
+                $log.fatal msg.red
                 exit(1)
             end
 
@@ -260,7 +260,7 @@ module OCCPGameServer
         }
         scoreblock = doc.find('/occpchallenge/scenario/score-names').first
         scoreblock.each_element { |name|
-            $log.debug "Parsing Score Name: " + name.to_s + " ... "
+            $log.debug "Parsing Score Name: " + name.attributes["name"]
             tempT = scoreKeeper.ScoreName.new(name.attributes["name"], name.attributes["formula"], name.attributes["descr"])
             scoreKeeper.names.push( tempT )
         }
@@ -481,4 +481,3 @@ module OCCPGameServer
     
     
 end
-
