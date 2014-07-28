@@ -9,7 +9,7 @@ module OCCPGameServer
         
         def initialize
             @mutex = Mutex.new
-            @clockstate = :running
+            @clockstate = :paused
             @lastreadtime = Time.now
             @gametime = 0
 

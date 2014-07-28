@@ -251,10 +251,8 @@ module OCCPGameServer
                 $log.fatal msg.red
                 exit(1)
             end
-
             
             tempT = scoreKeeper.ScoreLabel.new(name, sql, res)
-                #Score::ScoreLabel.new(label.attributes["name"], label.attributes["sql"] ) 
 
             scoreKeeper.labels.push( tempT )
         }
@@ -414,26 +412,23 @@ module OCCPGameServer
             highL.choose do |menu|
                 menu.header = "==================================\nSelect from the list below"
                 menu.choice(:Status) {
-                    highL.say("==================================")
-                    currentStatus = $appCore.STATE
+                    highL.say("==================================\n")
                     
+                    # Notify the system to emit status messages
+                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
+                    
+                    currentStatus = $appCore.STATE
                     case currentStatus
                         when RUN
                             highL.say("All Teams are Running")
                         when WAIT
                             highL.say("Teams are Paused")
                     end
-                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
-             
-             #       $appCore.scoreKeeper.labels.each{|label| 
-             #           puts 'found: '.red + (label.get_sql.nil? ? '' : label.get_sql )
-             #       }
-             #       $appCore.scoreKeeper.names.each{|label| 
-             #           puts 'found: '.red + label.to_s
-             #       }
-             #       $appCore.scoreKeeper.get_labels.each{ |scoreName|
-             #           puts scoreName
-             #       }
+
+                    gTime = Time.at($appCore.gameclock.gametime).utc.strftime("%H:%M:%S")
+                    gLength = Time.at($appCore.gameclock.gamelength).utc.strftime("%H:%M:%S")
+                    highL.say("Current Gametime is: #{gTime} of #{gLength}")
+
                     $appCore.scoreKeeper.get_names.each{ |scoreName|
                         highL.say(scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s )
                     }
