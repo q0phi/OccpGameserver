@@ -1,8 +1,8 @@
 #$LOAD_PATH.unshift("#{File.dirname(__FILE__)}/../lib")
 require "test/unit"
-require_relative "../lib/OCCPGameServer/iptools"
 require "socket"
 require "log4r"
+require_relative "../lib/OCCPGameServer/iptools"
 
 class IPToolsTest < Test::Unit::TestCase
 

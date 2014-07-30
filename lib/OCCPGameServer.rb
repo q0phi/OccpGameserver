@@ -180,6 +180,7 @@ module OCCPGameServer
 
                 new_team = Team.new
 
+                #TODO Decide if this needs fixing
                 new_team.teamid = i #SecureRandom.uuid
                 i += 1
                 new_team.teamname = teamxmlnode.attributes["name"]
