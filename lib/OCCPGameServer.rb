@@ -5,20 +5,6 @@ $LOAD_PATH.unshift(File.dirname(__FILE__))
 #Dir["#{File.dirname(__FILE__)}/OCCPGameServer/**/*.rb"].each { |f| require f }
 #Gem.find_files("OCCPGameServer/**/*.rb").each { |path| require path }
 
-require "OCCPGameServer/version"
-require "OCCPGameServer/main"
-require "OCCPGameServer/gameclock"
-require "OCCPGameServer/team"
-require "OCCPGameServer/gmessage"
-require "OCCPGameServer/score"
-require "OCCPGameServer/iptools"
-require "OCCPGameServer/Handlers/handler"
-require "OCCPGameServer/Handlers/exechandler"
-require "OCCPGameServer/Handlers/metasploithandler"
-require "OCCPGameServer/Events/event"
-require "OCCPGameServer/Events/execevent"
-require "OCCPGameServer/Events/metasploitevent"
-
 require "GameServerConfig"
 require "log4r"
 require "optparse"
@@ -31,6 +17,21 @@ require "colorize"
 require 'securerandom'
 require 'simple-random'
 require 'netaddr'
+
+require "OCCPGameServer/version"
+require "OCCPGameServer/main"
+require "OCCPGameServer/gameclock"
+require "OCCPGameServer/team"
+require "OCCPGameServer/gmessage"
+require "OCCPGameServer/score"
+require "OCCPGameServer/iptools"
+require "OCCPGameServer/webservices"
+require "OCCPGameServer/Handlers/handler"
+require "OCCPGameServer/Handlers/exechandler"
+require "OCCPGameServer/Handlers/metasploithandler"
+require "OCCPGameServer/Events/event"
+require "OCCPGameServer/Events/execevent"
+require "OCCPGameServer/Events/metasploitevent"
 
 module OCCPGameServer
     #Challenge Run States
@@ -112,7 +113,6 @@ module OCCPGameServer
                 addrHash = addrHash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
            
                 begin
-                    list = Array.new
                     case addrHash[:type] 
                     when 'range' 
                         poolHash[:addresses] += IPTools.generate_address_list(addrHash)
@@ -173,13 +173,15 @@ module OCCPGameServer
         
         # Load each team by parsing
         $log.info('Parsing Team Data...')
+        i=1
         doc.find('/occpchallenge/team').each { |teamxmlnode|
             $log.debug "Parsing Team: " + teamxmlnode.attributes["name"] + "..."
             begin
 
                 new_team = Team.new
 
-                new_team.teamid = SecureRandom.uuid
+                new_team.teamid = i #SecureRandom.uuid
+                i += 1
                 new_team.teamname = teamxmlnode.attributes["name"]
                 new_team.teamhost = teamxmlnode.find('team-host').first.attributes["hostname"]
                 new_team.speedfactor = teamxmlnode.find('speed').first.attributes["factor"]
@@ -204,8 +206,10 @@ module OCCPGameServer
                         #Split the list into periodic and single events
                         if this_event.frequency.eql?(0.0)
                             new_team.singletonList << this_event
+                            $log.debug "Added single event #{this_event.name} to #{new_team.teamname}"
                         else
                             new_team.periodicList << this_event
+                            $log.debug "Added periodic event #{this_event.name} to #{new_team.teamname}"
                         end
 
                     }
@@ -303,7 +307,7 @@ module OCCPGameServer
                     Log4r::Log4rTools.validate_level(loglevel) 
                     $options[:loglevel] = loglevel
                 rescue
-                    levels = Log4r::Log4rTools.max_level_str_size
+                    # levels = Log4r::Log4rTools.max_level_str_size
                     puts "Log level not in [#{loglevels}]"
                     exit
                 end
@@ -397,7 +401,10 @@ module OCCPGameServer
 
         #Launch the main application
         main = Thread.new { $appCore.run() }
-   
+  
+        #Launch the Web Services
+        web = Thread.new { WebListener.run! }
+
         #Setup the menuing system
         highL = HighLine.new
         highL.page_at = :auto
