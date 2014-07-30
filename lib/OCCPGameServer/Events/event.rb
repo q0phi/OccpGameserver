@@ -35,6 +35,27 @@ module OCCPGameServer
 
         end
 
+        def wshash
+        
+            event = {
+                :uuid=>@eventuid,
+                :guid=>@eventid,
+                :name=>@name,
+                :handler=>@eventhandler,
+                :starttime=>@starttime,
+                :endtime=>@endtime,
+                :frequency=>@frequency,
+                :drift=>@drift,
+                :ipaddresspool=>@network,
+                :scores=>[]
+            }
+
+            @scores.each{ |score|
+                event[:scores] << {:scoregroup=>score[:scoregroup],:points=>score[:value],:onsuccess=>score[:succeed]}
+            }
+
+            event
+        end
      #   def update_period()
      #       
      #       if @freqscale === 'sec' 
@@ -55,5 +76,5 @@ module OCCPGameServer
      #       update_period()
      #   end
 
-end
+    end
 end

@@ -4,6 +4,7 @@ class Team #Really the TeamScheduler
 
     attr_accessor :teamname, :teamid, :speedfactor, :teamhost
     attr_accessor :singletonList, :periodicList, :INBOX
+    attr_reader :STATE
 
     #Thread State Modes
     WAIT = 1
