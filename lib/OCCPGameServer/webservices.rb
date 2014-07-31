@@ -28,7 +28,7 @@ module OCCPGameServer
         end
 
 =begin
-    @api {get} /teams Read all teams
+    @api {get} /teams/ Read all teams
     @apiVersion 0.1.0
     @apiName GetTeams
     @apiGroup Teams
@@ -55,7 +55,7 @@ module OCCPGameServer
         end
 
 =begin
-    @api {get} /teams/<teamid> Read team data
+    @api {get} /teams/<teamid>/ Read team data
     @apiVersion 0.1.0
     @apiName GetTeam
     @apiGroup Teams
@@ -110,6 +110,20 @@ module OCCPGameServer
     @apiSuccess {Number} startIndex Starting index of this page
     @apiSuccess {Number} resultsPerPage Number of results per page
     @apiSuccess {Object[]} events Array of events belonging to this team
+    @apiSuccess {String} events.uuid Unique ID of event isntance
+    @apiSuccess {String} events.guid Registry ID of event type
+    @apiSuccess {String} events.name Name of the event
+    @apiSuccess {String} events.handler Handler class for the event
+    @apiSuccess {String} events.starttime '''GameTime''' start time for the event
+    @apiSuccess {String} events.endtime '''GameTime''' end time for the event
+    @apiSuccess {Number} events.frequency The number of seconds to elapse between successive events
+    @apiSuccess {Number} events.drift The number of seconds (+/-)to drift from the expected execution time
+    @apiSuccess {String} events.ipaddresspool IP address assignment pool
+    @apiSuccess {Object[]} events.scores Score items associated with this event
+    @apiSuccess {String} events.scores.scoregroup Score group label for this score
+    @apiSuccess {String} events.scores.points Number of points to assign for this score
+    @apiSuccess {Boolean} events.scores.onsuccess Whether to assign points when event succeeds or fails
+
 
     @apiSuccessExample Success-Response:
         HTTP/1.1 200 OK
@@ -119,18 +133,18 @@ module OCCPGameServer
             "resultsPerPage": 20,
             "events": [
                 {
-                    "uuid": "123456-1234-123456",
-                    "guid": "q-w-e",
-                    "name": "ping",
-                    "handler": "exec-handler-1",
-                    "starttime": "00:00:00",
-                    "endtime": "00:00:00",
-                    "frequency": "2",
-                    "drift": "0",
-                    "ipaddresspool": "pub_1",
-                    "score": [	
-                        { "score-group": "redteam",	"points": "-13", "onsuccess": "false" },
-                        { "score-group": "blueteam", "points": "13", "onsuccess": "true" }
+                    "uuid" : "123456-1234-123456",
+                    "guid" : "q-w-e",
+                    "name" : "ping",
+                    "handler" : "exec-handler-1",
+                    "starttime" : "00:00:00",
+                    "endtime" : "00:00:00",
+                    "frequency" : "2",
+                    "drift" : "0",
+                    "ipaddresspool" : "pub_1",
+                    "scores" : [	
+                        { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
+                        { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
                         ]
                 },
                 . . .
