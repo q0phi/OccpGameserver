@@ -35,6 +35,7 @@ class Team #Really the TeamScheduler
         @periodicList = Array.new
 
         @eventGroup = ThreadGroup.new
+        @eventGroupSingle = ThreadGroup.new
 
         @shuttingdown = false
 
@@ -60,41 +61,40 @@ class Team #Really the TeamScheduler
         @STATE = state
 
         case state
-            when WAIT
-                if oldstate === RUN
-                    @periodThread.each{|evThread|
-                        if evThread.alive?
-                            evThread.run
-                        end
-                    }
-                    #puts @singletonThread.inspect
-                    if @singletonThread.alive?
-                        @singletonThread.run
-                    end
-                end
-            when RUN
-                if oldstate === WAIT
-                    @periodThread.each{|evThread|
-                        if evThread.alive?
-                            evThread.wakeup
-                        end
-                    }
-                    if @singletonThread.alive?
-                        @singletonThread.wakeup
-                    end
-                end
-            when STOP
-                @shuttingdown = true
-                #Kill the PERIODIC Loops
+        when WAIT
+            if oldstate === RUN
                 @periodThread.each{|evThread|
                     if evThread.alive?
                         evThread.run
                     end
                 }
+                #puts @singletonThread.inspect
                 if @singletonThread.alive?
                     @singletonThread.run
                 end
-
+            end
+        when RUN
+            if oldstate === WAIT
+                @periodThread.each{|evThread|
+                    if evThread.alive?
+                        evThread.wakeup
+                    end
+                }
+                if @singletonThread.alive?
+                    @singletonThread.wakeup
+                end
+            end
+        when STOP
+            @shuttingdown = true
+            #Kill the PERIODIC Loops
+            @periodThread.each{|evThread|
+                if evThread.alive?
+                    evThread.run
+                end
+            }
+            if @singletonThread.alive?
+                @singletonThread.run
+            end
         end
 
     end
@@ -138,6 +138,7 @@ class Team #Really the TeamScheduler
                 sleepFor = 0
                 drift = 0
                     
+                loops = 0
                 # Get the handler from the $appCore and launch the event
                 event_handler = $appCore.get_handler(evOne.eventhandler)
 
@@ -146,6 +147,9 @@ class Team #Really the TeamScheduler
                 end
                 # Event Scheduler Thread Run Loop
                 while not @shuttingdown do
+                    
+                    #Stats counter is for debugging only
+                    loops = loops + 1
                     
                     clock = $appCore.gameclock.gametime
 
@@ -195,13 +199,13 @@ class Team #Really the TeamScheduler
                     #For now an event and it's handler code are going to be assumed to run atomically from the scheduler
                     #IE once the handler has launched it can do whatever it wants until it returns
                     #If the GS is paused while it is running tough beans for us.
-
                     eventLocal = Thread.new do
 
                         launchAt = $appCore.gameclock.gametime
                         
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
+                        $log.debug("Launching Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)} for the #{loops} time")
 
                         #Run the event through its handler
                         event_handler.run(evOne, app_core)
@@ -283,11 +287,11 @@ class Team #Really the TeamScheduler
                         launchAt = $appCore.gameclock.gametime
 
                         if evOne.nil?
-                            $log.debug("How did I get here at #{launchAt.to_s}")
+                            $log.error("How did I get here at #{launchAt.to_s}".red)
                             return
                         end
 
-                        $log.debug("Launching #{evOne.name} #{evOne.eventuid}")
+                        $log.info("Launching Single Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)}")
                         
                         # Get the handler from the app_core and launch the event
                         event_handler = $appCore.get_handler(evOne.eventhandler)
@@ -295,17 +299,20 @@ class Team #Really the TeamScheduler
 
                         currentEvent.hasrun = true
 
-                        msgtext = 'SINGLETON '.green + evOne.name.to_s.light_magenta + " " +
-                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + $appCore.gameclock.gametime.round(4).to_s.green
+                        msgtext = 'SINGLETON '.green + "#{evOne.name.to_s.light_magenta} #{evOne.eventuid.to_s.light_magenta} at #{launchAt.round(4).to_s.yellow} end #{$appCore.gameclock.gametime.round(4).to_s.green}"
                         
                         $log.debug msgtext
 
                     end
 
-                    @eventGroup.add(eventLocal)
+                    @eventGroupSingle.add(eventLocal)
 
+                    #TODO Keep this thread alive so users can add additional single events to it.
                 else
-
+                    while not @eventGroupSingle.list.empty? do
+                        $log.debug 'Waiting for all events to complete -- re-sleeping'
+                        sleep(1)
+                    end
                     $log.info "Finished Running All Singleton Events at: ".light_green + $appCore.gameclock.gametime.to_s.green
                     break
 
@@ -318,13 +325,11 @@ class Team #Really the TeamScheduler
         $log.info 'READY'
         
         #TEAM run Loop
-        while message = @INBOX.pop do
+        while not @shuttingdown and message = @INBOX.pop do
             case message.signal                
             
             when 'STATUS'
-                #@eventGroup.list.each{|eventThread|
-                #    $log.debug(eventThread.status)
-                #}
+                $log.debug 'Status Request'
 
             when 'COMMAND'
 
@@ -339,11 +344,7 @@ class Team #Really the TeamScheduler
             when 'DIE'
                 break
             else
-                break
-            end
-
-            if @shuttingdown
-                break
+                $log.error 'Unknown message received: ' + message.to_s
             end
 
         end #Message Poll End
@@ -354,9 +355,12 @@ class Team #Really the TeamScheduler
         @eventGroup.list.each{|ev|
             ev.join
         }
+        @eventGroupSingle.list.each{|ev|
+            ev.join
+        }
         @singletonThread.join
 
-        $log.debug "Finished executing, Team thread terminating".red
+        $log.info "Finished executing, Team thread terminating".red
 
     end #Run End
 end #Class End

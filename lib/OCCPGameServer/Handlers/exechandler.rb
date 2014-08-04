@@ -111,9 +111,11 @@ class ExecHandler < Handler
         #Log message that the event ran
         msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventuid => event.eventuid, :custom => event.command }
         
+        $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
+        
         if( success === true )
 
-            $log.debug "#{event.name} #{event.command} " + "SUCCESS".green
+            $log.info "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS".green
             app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
             
             #Score Database
@@ -128,7 +130,7 @@ class ExecHandler < Handler
                 $log.error(msg)
 
         else
-            $log.debug "#{event.name} #{event.command} " + "FAILED".red
+            $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "FAILED".light_red
             app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
             
             #Score Database
