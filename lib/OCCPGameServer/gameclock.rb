@@ -44,7 +44,8 @@ module OCCPGameServer
             @watchdog = Thread.new { 
                 sleep(@gamelength-@gametime) 
                 $appCore.INBOX << GMessage.new({:fromid=>'Watchdog',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
-                puts "Game time Expired!"
+                puts "Game Clock Expired!"
+                $log.info "====== Game Clock Expired! ======"
             }
         end
 

@@ -244,7 +244,7 @@ module OCCPGameServer
                     if events.empty?
                         team.periodicList.each do |event|
                             if event.eventuid == params[:eventuid]
-                                events = eveht.wsHash
+                                events = event.wshash
                                 break
                             end
                         end
