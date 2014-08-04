@@ -131,7 +131,8 @@ class Team #Really the TeamScheduler
                 Log4r::NDC.set_max_depth(72)
                 Log4r::NDC.inherit(stackLocal.clone)
                 
-                evOne = event.clone
+                evOne = event
+
                 $log.debug("Creating periodic thread scheduler for: #{evOne.name} #{evOne.eventuid}")
                 #threaduid = evOne.eventuid
                 sleepFor = 0
