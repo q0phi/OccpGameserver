@@ -49,7 +49,7 @@ module OCCPGameServer
                 :endtime=>@endtime,
                 :frequency=>@frequency,
                 :drift=>@drift,
-                :ipaddresspool=>@network,
+                :ipaddresspool=>@ipaddress,
                 :scores=>[]
             }
 
