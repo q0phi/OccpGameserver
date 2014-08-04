@@ -406,6 +406,9 @@ module OCCPGameServer
         #Launch the Web Services
         web = Thread.new { WebListener.run! }
 
+        #Wait for Sinatra to start completely
+        sleep(1)
+
         #Setup the menuing system
         highL = HighLine.new
         highL.page_at = :auto
@@ -416,6 +419,26 @@ module OCCPGameServer
             while not exitable do
                 highL.choose do |menu|
                     menu.header = "==================================\nSelect from the list below"
+                    menu.choice(:"Start"){
+                        highL.say("==================================\n")
+                        currentStatus = $appCore.STATE
+                        case currentStatus
+                        when STOP
+                            highL.say("Game is Stopped. Only Status can be shown.")
+                        else
+                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
+                        end
+                    }
+                    menu.choice(:"Pause"){
+                        highL.say("==================================\n")
+                        currentStatus = $appCore.STATE
+                        case currentStatus
+                        when STOP
+                            highL.say("Game is Stopped. Only Status can be shown.")
+                        else
+                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
+                        end
+                    }
                     menu.choice(:Status) {
                         highL.say("==================================\n")
                         
@@ -441,26 +464,6 @@ module OCCPGameServer
                         }
 
                         
-                    }
-                    menu.choice(:"Start"){
-                        highL.say("==================================\n")
-                        currentStatus = $appCore.STATE
-                        case currentStatus
-                        when STOP
-                            highL.say("Game is Stopped. Only Status can be shown.")
-                        else
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
-                        end
-                    }
-                    menu.choice(:"Pause"){
-                        highL.say("==================================\n")
-                        currentStatus = $appCore.STATE
-                        case currentStatus
-                        when STOP
-                            highL.say("Game is Stopped. Only Status can be shown.")
-                        else
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
-                        end
                     }
                     menu.choice(:"Clear Screen") {
                         system("clear")
