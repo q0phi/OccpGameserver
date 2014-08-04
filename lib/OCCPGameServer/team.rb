@@ -126,7 +126,6 @@ class Team #Really the TeamScheduler
 
         #Launch a separate thread for each of the periodically scheduled events.
         @periodicList.each {|event|
-            #next
             @periodThread << Thread.new {
         
                 Log4r::NDC.set_max_depth(72)
@@ -138,8 +137,8 @@ class Team #Really the TeamScheduler
                 sleepFor = 0
                 drift = 0
                     
-                # Get the handler from the app_core and launch the event
-                event_handler = app_core.get_handler(evOne.eventhandler)
+                # Get the handler from the $appCore and launch the event
+                event_handler = $appCore.get_handler(evOne.eventhandler)
 
                 if @STATE === WAIT
                     Thread.stop
@@ -147,7 +146,7 @@ class Team #Really the TeamScheduler
                 # Event Scheduler Thread Run Loop
                 while not @shuttingdown do
                     
-                    clock = app_core.gameclock.gametime
+                    clock = $appCore.gameclock.gametime
 
                     #Stop running this event after its end time
                     if evOne.endtime < clock
@@ -165,9 +164,9 @@ class Team #Really the TeamScheduler
 
                         #Check if last sleep cycle was interupted and continue it if needed
                         if sleepFor > 0
-                            preClock = app_core.gameclock.gametime
+                            preClock = $appCore.gameclock.gametime
                             sleep(sleepFor)
-                            clock = app_core.gameclock.gametime
+                            clock = $appCore.gameclock.gametime
                             sleepFor = sleepFor - (clock - preClock)
                         end
 
@@ -197,17 +196,17 @@ class Team #Really the TeamScheduler
 
                     eventLocal = Thread.new do
 
-                        launchAt = app_core.gameclock.gametime
+                        launchAt = $appCore.gameclock.gametime
                         
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
 
                         #Run the event through its handler
-                        this_event = event_handler.run(evOne, app_core)
+                        event_handler.run(evOne, app_core)
 
                         slept = evOne.frequency + drift
                         msgtext = "PERIODIC ".green + evOne.name.to_s.light_magenta + " " +
-                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + slept.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
+                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + slept.to_s.light_magenta + " " + $appCore.gameclock.gametime.round(4).to_s.green
                         
                         $log.debug msgtext
 
@@ -223,21 +222,14 @@ class Team #Really the TeamScheduler
             }#end periodThread
         } #end periodicList
 
-        singles = 0
         ### Sparse Event Run Thread ###
         @singletonThread = Thread.new {
 
             Log4r::NDC.set_max_depth(72)
             Log4r::NDC.inherit(stackLocal.clone)
             
-            sleeptime = 0
            
             $log.debug('Length of singleton list: ' + @singletonList.length.to_s)
-
-            #Grab the first event to be run
-            nextEvent = @singletonList.shift
-            singles += 1
-            $log.debug('First event popped: '.yellow + singles.to_s)
 
             if @STATE === WAIT
                 Thread.stop
@@ -246,13 +238,27 @@ class Team #Really the TeamScheduler
             #Signal ready and wait for start signal
             while not @shuttingdown do
                 
-                if nextEvent
+                $log.debug "Re-sorting singleton list"
+                @singletonList.sort!{|aEv,bEv| aEv.starttime <=> bEv.starttime }
 
-                    $log.debug('Event loaded: ' + nextEvent.name + ' ' + nextEvent.eventuid)
+                # Search for the next single event to run
+                currentEvent = nil
+                @singletonList.each do |event|
+                    clock = $appCore.gameclock.gametime
+                    if event.starttime >= clock and not event.hasrun
+                        currentEvent = event
+                        break
+                    end
+                end
 
-                    clock = app_core.gameclock.gametime
-                    if nextEvent.starttime > clock
-                        sleeptime = nextEvent.starttime - clock
+                if currentEvent
+
+                    $log.debug('Event loaded: ' + currentEvent.name + ' ' + currentEvent.eventuid)
+
+                    sleeptime = 0
+                    clock = $appCore.gameclock.gametime
+                    if currentEvent.starttime > clock
+                        sleeptime = currentEvent.starttime - clock
                         sleep sleeptime
                     end  
                     
@@ -265,14 +271,14 @@ class Team #Really the TeamScheduler
                         break
                     end
                    
-                    evOne = nextEvent.clone
+                    evOne = currentEvent.clone
                     
                     eventLocal = Thread.new do
                         
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
                        
-                        launchAt = app_core.gameclock.gametime
+                        launchAt = $appCore.gameclock.gametime
 
                         if evOne.nil?
                             $log.debug("How did I get here at #{launchAt.to_s}")
@@ -282,11 +288,13 @@ class Team #Really the TeamScheduler
                         $log.debug("Launching #{evOne.name} #{evOne.eventuid}")
                         
                         # Get the handler from the app_core and launch the event
-                        event_handler = app_core.get_handler(evOne.eventhandler)
-                        this_event = event_handler.run(evOne, app_core)
+                        event_handler = $appCore.get_handler(evOne.eventhandler)
+                        event_handler.run(evOne, app_core)
+
+                        currentEvent.hasrun = true
 
                         msgtext = 'SINGLETON '.green + evOne.name.to_s.light_magenta + " " +
-                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + app_core.gameclock.gametime.round(4).to_s.green
+                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + $appCore.gameclock.gametime.round(4).to_s.green
                         
                         $log.debug msgtext
 
@@ -296,16 +304,10 @@ class Team #Really the TeamScheduler
 
                 else
 
-                    $log.info "Finished Running All Singleton Events at: ".light_green + app_core.gameclock.gametime.to_s.green
+                    $log.info "Finished Running All Singleton Events at: ".light_green + $appCore.gameclock.gametime.to_s.green
                     break
 
                 end
-                          
-                #Grab the next single event
-                nextEvent = @singletonList.shift
-                singles += 1
-                $log.debug('Num Pop\'d: '.yellow + singles.to_s + ' At: '.yellow + app_core.gameclock.gametime.to_s + ' NIL? '.yellow + nextEvent.nil?.to_s)
-
             end
             
             $log.debug('Exiting Singleton Thread')

@@ -5,6 +5,7 @@ module OCCPGameServer
         attr_accessor :eventuid, :starttime, :endtime, :drift
         attr_accessor :scores, :attributes, :rollover, :frequency
         attr_accessor :network, :ipaddress
+        attr_accessor :hasrun
 
         def initialize(eh)
             @scores = Array.new
@@ -15,6 +16,8 @@ module OCCPGameServer
             @eventhandler = eh[:handler]
             @eventuid = eh[:eventuid]
             
+            @hasrun = false
+
             raise ArgumentError, "event requires a name" if eh[:name].nil?
             @name = eh[:name]
             

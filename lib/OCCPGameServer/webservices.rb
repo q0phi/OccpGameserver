@@ -228,7 +228,7 @@ module OCCPGameServer
             "error" : "TeamNotFound"|"EventNotFound"
         }
 =end
-        get '/teams/:id/events/:eventuid/' eo
+        get '/teams/:id/events/:eventuid/' do
             teaminfo = nil
             events = []
             $appCore.teams.each do |team|
