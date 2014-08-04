@@ -157,6 +157,7 @@ class Team #Really the TeamScheduler
                     # Keep sleeping until the start time or until the next iteration
                     while evOne.starttime > clock or sleepFor > 0
 
+                        clock = $appCore.gameclock.gametime
                         #Special case while waiting to for starttime
                         startSleep = evOne.starttime - clock
                         if startSleep > 0
@@ -167,8 +168,8 @@ class Team #Really the TeamScheduler
                         if sleepFor > 0
                             preClock = $appCore.gameclock.gametime
                             sleep(sleepFor)
-                            clock = $appCore.gameclock.gametime
-                            sleepFor = sleepFor - (clock - preClock)
+                            postClock = $appCore.gameclock.gametime
+                            sleepFor = sleepFor - (postClock - preClock)
                         end
 
                         if sleepFor > 0 
