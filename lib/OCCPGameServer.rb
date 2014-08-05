@@ -65,6 +65,13 @@ module OCCPGameServer
         main_runner = Main.new
 
         main_runner.scenarioname = scenario_name
+        
+        main_runner.gameid = doc.find('/occpchallenge/scenario').first["gameid"]
+        $log.info "Game ID: " + main_runner.gameid
+        main_runner.type = doc.find('/occpchallenge/scenario').first["type"]
+        $log.info "Game type: " + main_runner.type
+        main_runner.description = doc.find('/occpchallenge/scenario').first["description"]
+        $log.info "Game description: " + main_runner.description
 
         #Setup the game clock
         length_node = doc.find('/occpchallenge/scenario/length').first

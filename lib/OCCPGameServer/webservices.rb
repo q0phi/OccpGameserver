@@ -2,7 +2,7 @@ module OCCPGameServer
 
     require 'sinatra/base'
     require'json'
-
+    
     class WebListener < Sinatra::Base
 
 =begin
@@ -24,6 +24,40 @@ module OCCPGameServer
 =end
         get '/' do
             info = {:Application => "OCCP GameServer", :Version => OCCPGameServer::VERSION}
+            JSON.generate(info)
+        end
+
+=begin
+    @api {get} /scenario/ Request Scenario Information
+    @apiVersion 0.1.0
+    @apiName GetScenario
+    @apiGroup Scenario
+
+    @apiSuccess {String} name Name of the scenario
+    @apiSuccess {String} id ID of the scenario
+    @apiSuccess {String} type Type of the scenario
+    @apiSuccess {String} length Length of the scenario as orginally configured
+    @apiSuccess {String} description Short description of the activity of the scenario
+    
+    @apiSuccessExample Success-Response:
+        HTTP/1.1 200 OK
+        {
+            "name" : "Red Team v. Blue Team",
+            "id" : "1",
+            "type" : "Network Defense",
+            "length" : "300",
+            "description" : "A two sentence description of the scenario."
+        }
+     
+=end
+        get '/scenario/' do
+
+            info = {    :name => $appCore.scenarioname,
+                        :id => $appCore.gameid,
+                        :type => $appCore.type,
+                        :length => $appCore.gameclock.gamelength,
+                        :description => $appCore.description
+            }
             JSON.generate(info)
         end
 
