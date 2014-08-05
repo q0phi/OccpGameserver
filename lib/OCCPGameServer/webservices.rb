@@ -12,10 +12,17 @@ module OCCPGameServer
         QUIT = 5
         
         @@game_states = {
-            WAIT => 'PAUSED',
+            WAIT => 'Paused',
+            READY => 'Ready',
+            RUN => 'Running',
+            STOP => 'Stopped',
+            QUIT => 'Exiting'
+        }
+        @@game_state_verbs = {
+            WAIT => 'PAUSE',
             READY => 'READY',
-            RUN => 'RUNNING',
-            STOP => 'STOPPED',
+            RUN => 'RUN',
+            STOP => 'STOP',
             QUIT => 'QUIT'
         }
 =begin
@@ -100,6 +107,14 @@ module OCCPGameServer
                     :state => @@game_states[$appCore.STATE]
             }
             JSON.generate(info)
+        end
+        get '/gameclock/states/' do
+            info = {
+                    :length => $appCore.gameclock.gamelength,
+                    :gametime => $appCore.gameclock.gametime,
+                    :state => @@game_states[$appCore.STATE]
+            }
+            JSON.generate(@@game_states)
         end
 
 =begin

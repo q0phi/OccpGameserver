@@ -179,6 +179,9 @@ module OCCPGameServer
                 end
             }
 
+            #Wait till all the teams are ready
+            @STATE = READY
+
             #Poll the @INBOX waiting for tasks
             while message = @INBOX.pop do
 

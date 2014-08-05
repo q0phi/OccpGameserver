@@ -11,10 +11,8 @@ class Team #Really the TeamScheduler
     READY = 2
     RUN = 3
     STOP = 4
+    QUIT = 5
 
-    #The periodic events will be calculated in a block of the next future X seconds
-    EVENT_PERIOD = 5
-               
     def initialize()
 
         require 'securerandom'
@@ -322,6 +320,7 @@ class Team #Really the TeamScheduler
             $log.debug('Exiting Singleton Thread')
         }#End Singleton thread
 
+        #Check that everything is setup
         $log.info 'READY'
         
         #TEAM run Loop
