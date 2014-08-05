@@ -4,7 +4,20 @@ module OCCPGameServer
     require'json'
     
     class WebListener < Sinatra::Base
-
+        #Challenge Run States
+        WAIT = 1
+        READY = 2
+        RUN = 3
+        STOP = 4
+        QUIT = 5
+        
+        @@game_states = {
+            WAIT => 'PAUSED',
+            READY => 'READY',
+            RUN => 'RUNNING',
+            STOP => 'STOPPED',
+            QUIT => 'QUIT'
+        }
 =begin
     @api {get} / Request System Information
     @apiVersion 0.1.0
@@ -57,6 +70,34 @@ module OCCPGameServer
                         :type => $appCore.type,
                         :length => $appCore.gameclock.gamelength,
                         :description => $appCore.description
+            }
+            JSON.generate(info)
+        end
+
+=begin
+    @api {get} /gameclock/ Read the game clock
+    @apiVersion 0.1.0
+    @apiName GetGameclock
+    @apiGroup Gameclock
+
+    @apiSuccess {Number} length Length of the scenario in seconds
+    @apiSuccess {Number} gametime Current value of the game clock in seconds
+    @apiSuccess {String} state The current state of the game clock
+
+    @apiSuccessExample Success-Response:
+        HTTP/1.1 200 OK
+        {
+            "length" : 300,
+            "gametime" : 15,
+            "state" : "RUN"
+        }
+        
+=end
+        get '/gameclock/' do
+            info = {
+                    :length => $appCore.gameclock.gamelength,
+                    :gametime => $appCore.gameclock.gametime,
+                    :state => @@game_states[$appCore.STATE]
             }
             JSON.generate(info)
         end

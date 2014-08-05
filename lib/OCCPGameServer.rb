@@ -35,7 +35,7 @@ require "OCCPGameServer/Events/metasploitevent"
 
 module OCCPGameServer
     #Challenge Run States
-    WAIT = 1
+    OCCPGameServer::WAIT = 1
     READY = 2
     RUN = 3
     STOP = 4
