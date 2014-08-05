@@ -36,7 +36,7 @@ module OCCPGameServer
     @apiSuccess {String} name Name of the scenario
     @apiSuccess {String} id ID of the scenario
     @apiSuccess {String} type Type of the scenario
-    @apiSuccess {String} length Length of the scenario as orginally configured
+    @apiSuccess {Number} length Length of the scenario in seconds
     @apiSuccess {String} description Short description of the activity of the scenario
     
     @apiSuccessExample Success-Response:
