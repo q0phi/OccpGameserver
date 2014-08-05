@@ -295,7 +295,13 @@ class Team #Really the TeamScheduler
                         event_handler = $appCore.get_handler(evOne.eventhandler)
                         event_handler.run(evOne, app_core)
 
-                        currentEvent.hasrun = true
+                        #Update this events status
+                        @singletonList.each do |event|
+                            if event.eventuid == evOne.eventuid
+                                event.setrunstate(true)
+                                break
+                            end
+                        end
 
                         msgtext = 'SINGLETON '.green + "#{evOne.name.to_s.light_magenta} #{evOne.eventuid.to_s.light_magenta} at #{launchAt.round(4).to_s.yellow} end #{$appCore.gameclock.gametime.round(4).to_s.green}"
                         

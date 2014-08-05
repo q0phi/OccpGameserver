@@ -12,7 +12,23 @@ module OCCPGameServer
             @clockstate = :paused
             @lastreadtime = Time.now
             @gametime = 0
+            @watchdog = nil
 
+        end
+        def startwatchdog
+            @watchdog = Thread.new { 
+                sleep(@gamelength-gametime) 
+                if gametime >= @gamelength
+                    puts "Game Clock Expired!"
+                    $log.info "====== Game Clock Expired! ======"
+                    $appCore.INBOX << GMessage.new({:fromid=>'Watchdog',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})              
+                end
+            }
+        end
+        def stopwatchdog
+            if @watchdog.kind_of? Thread and @watchdog.alive?
+                @watchdog.kill
+            end
         end
         def set_gamelength(time, format)
            # @gamelength = DateTime.strptime(time, format)
@@ -24,6 +40,8 @@ module OCCPGameServer
            when "hours"
                @gamelength = time.to_i * 60 * 60
            end
+           stopwatchdog
+           startwatchdog
         end
         def gamelength
             @gamelength
@@ -41,18 +59,11 @@ module OCCPGameServer
                 @lastreadtime = Time.now
                 @clockstate = :running
             end
-            @watchdog = Thread.new { 
-                sleep(@gamelength-@gametime) 
-                puts "Game Clock Expired!"
-                $log.info "====== Game Clock Expired! ======"
-                $appCore.INBOX << GMessage.new({:fromid=>'Watchdog',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
-            }
+            startwatchdog
         end
 
         def pause
-            if @watchdog.alive?
-                @watchdog.kill
-            end
+            stopwatchdog
             @mutex.synchronize do
                 @gametime = Time.now - @lastreadtime + @gametime
                 @clockstate = :paused
@@ -72,7 +83,6 @@ module OCCPGameServer
                 @gametime
             end
         end
-
     end
 
 end

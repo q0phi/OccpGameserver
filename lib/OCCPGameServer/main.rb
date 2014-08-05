@@ -223,7 +223,11 @@ module OCCPGameServer
                     
                     case command[:command]
                     when 'STATE'
+                        $log.debug "STATE MSG RECEIVED: #{command[:state]}"
                         set_state(command[:state])
+                    when :LENGTH
+                        $log.debug "Length Change MSG RECEIVED: #{command[:length]}"
+                        @gameclock.set_gamelength(command[:length], 'seconds')
                     end
 
                 when 'STATUS'

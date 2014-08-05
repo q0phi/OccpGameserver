@@ -34,7 +34,7 @@ module OCCPGameServer
     @apiSuccess {String} application Name of the application
     @apiSuccess {String} version Version of the application
     
-    @apiSuccessExample Success-Response:
+    @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
             "application" : "OCCP GameServer",
@@ -59,7 +59,7 @@ module OCCPGameServer
     @apiSuccess {Number} length Length of the scenario in seconds
     @apiSuccess {String} description Short description of the activity of the scenario
     
-    @apiSuccessExample Success-Response:
+    @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
             "name" : "Red Team v. Blue Team",
@@ -84,14 +84,16 @@ module OCCPGameServer
 =begin
     @api {get} /gameclock/ Read the game clock
     @apiVersion 0.1.0
-    @apiName GetGameclock
-    @apiGroup Gameclock
+    @apiName GetGameClock
+    @apiGroup GameClock
+    @apiDescription Read the available information about the game clock. The <code>length</code> and <code>gametime</code>
+    fields are reported in seconds.
 
     @apiSuccess {Number} length Length of the scenario in seconds
     @apiSuccess {Number} gametime Current value of the game clock in seconds
     @apiSuccess {String} state The current state of the game clock
 
-    @apiSuccessExample Success-Response:
+    @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
             "length" : 300,
@@ -110,15 +112,74 @@ module OCCPGameServer
         end
 
 =begin
+    @api {put} /gameclock/ Change the game clock
+    @apiVersion 0.1.0
+    @apiName SetGameClock
+    @apiGroup GameClock
+
+    @apiParam {Number} length Length of the scenario in seconds
+    @apiParam {Number} state The current state of the game clock
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        {
+            "length" : 300,
+            "state" : 4
+        }
+    @apiError (Error 400) invalidInputError The data for the request was not correct JSON
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 400 BAD REQUEST
+        {
+            "error" : "invalidInputError"
+        }
+    @apiError (Error 422) invalidValuesError The data for the request was not valid for the entity
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 422 UNPROCESSABLE ENTITY
+        {
+            "error" : "invalidValuesError"
+        }
+        
+=end
+        put '/gameclock/' do
+            request.body.rewind
+
+            begin
+                data = JSON.parse request.body.read
+                info = {}
+                if data["state"] and @@game_state_verbs[Integer(data["state"])]
+                    info[:state] = Integer(data["state"])
+                end
+                if data["length"] and Integer(data["length"])
+                    info[:length] = Integer(data["length"])
+                end
+                    
+                if info[:state] #update the game state
+                    $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'COMMAND',:msg=>{:command => 'STATE', :state=>info[:state]}})
+                    info[:state] = @@game_states[info[:state]]
+                end
+                if info[:length] #update the game state
+                    $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'COMMAND',:msg=>{:command => :LENGTH, :length=>info[:length]}})
+                end
+                
+                res = JSON.generate info
+            rescue ArgumentError=>e
+                res = [422, {:error=>"invalidValuesError"}.to_json]
+            rescue JSON::ParserError=>e
+                res = [400, {:error=>"invalidInputError"}.to_json]
+            end
+            res
+        end
+
+=begin
     @api {get} /gameclock/states/ Read the game states
     @apiVersion 0.1.0
-    @apiName GetGameStatesVerbs
-    @apiGroup Gameclock
+    @apiName GetGameStateVerbs
+    @apiGroup GameClock
 
     @apiSuccess {String} stateverb Name of the verb used to set a state
     @apiSuccess {Number} statevalue Value to use in state
 
-    @apiSuccessExample Success-Response:
+    @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         [
             {
@@ -146,7 +207,7 @@ module OCCPGameServer
     @apiSuccess {String} name Name of the team
     @apiSuccess {String} id Id of the team
 
-    @apiSuccessExample Success-Response:
+    @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         [ {
             "name" : "Blue Team",
@@ -175,7 +236,7 @@ module OCCPGameServer
     @apiSuccess {String} rate Event execution rate
     @apiSuccess {String} state The running state of the team
 
-    @apiSuccessExample Success-Response:
+    @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
             "name" : "Blue Team",
@@ -184,7 +245,7 @@ module OCCPGameServer
             "state" : "WAIT"
         }
     @apiError (Error 4xx) TeamNotFound The team for the given id was not found
-    @apiErrorExample Error-Response:
+    @apiErrorExample Error-Response (example):
         HTTP/1.1 404 NOT FOUND
         {
             "error" : "TeamNotFound"
@@ -213,8 +274,8 @@ module OCCPGameServer
     @apiName GetTeamEvents
     @apiGroup Teams
 
-    @apiParam {Number} [start_index=0] Optional Starting Index Entry
-    @apiParam {Number} [max_results=20] Optional Maximum Results Per Page
+    @apiParam {Number} [&start_index=0] Optional Starting Index Entry
+    @apiParam {Number} [&max_results=20] Optional Maximum Results Per Page
 
     @apiSuccess {Number} numberOfResults Number of results found
     @apiSuccess {Number} startIndex Starting index of this page
@@ -235,7 +296,7 @@ module OCCPGameServer
     @apiSuccess {Boolean} events.scores.onsuccess Whether to assign points when event succeeds or fails
 
 
-    @apiSuccessExample Success-Response:
+    @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
             "numberOfResults": 250,
@@ -262,7 +323,7 @@ module OCCPGameServer
         }
 
     @apiError (Error 4xx) TeamNotFound The team for the given id was not found
-    @apiErrorExample Error-Response:
+    @apiErrorExample Error-Response (example):
         HTTP/1.1 404 NOT FOUND
         {
             "error" : "TeamNotFound"
@@ -312,7 +373,7 @@ module OCCPGameServer
     @apiSuccess {Boolean} scores.onsuccess Whether to assign points when event succeeds or fails
 
 
-    @apiSuccessExample Success-Response:
+    @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
             "uuid" : "123456-1234-123456",
@@ -332,7 +393,7 @@ module OCCPGameServer
 
     @apiError (Error 4xx) TeamNotFound The team for the given id was not found
     @apiError (Error 4xx) EventNotFound The event for the given id was not found
-    @apiErrorExample Error-Response:
+    @apiErrorExample Error-Response (example):
         HTTP/1.1 404 NOT FOUND
         {
             "error" : "TeamNotFound"|"EventNotFound"

@@ -5,7 +5,7 @@ module OCCPGameServer
         attr_accessor :eventuid, :starttime, :endtime, :drift
         attr_accessor :scores, :attributes, :rollover, :frequency
         attr_accessor :network, :ipaddress
-        attr_accessor :hasrun
+        attr_reader :hasrun
 
         def initialize(eh)
             @scores = Array.new
@@ -15,7 +15,8 @@ module OCCPGameServer
 
             @eventhandler = eh[:handler]
             @eventuid = eh[:eventuid]
-            
+           
+            @mutex = Mutex.new
             @hasrun = false
 
             raise ArgumentError, "event requires a name" if eh[:name].nil?
@@ -36,6 +37,13 @@ module OCCPGameServer
            # raise ArgumentError, "no network name defined" if eh[:network].nil?
            # @network = eh[:network].to_s
 
+        end
+
+
+        def setrunstate( ran )
+            @mutex.synchronize do
+                @hasrun = ran
+            end
         end
 
         def wshash
@@ -59,25 +67,6 @@ module OCCPGameServer
 
             event
         end
-     #   def update_period()
-     #       
-     #       if @freqscale === 'sec' 
-     #           @period = 1/@frequency
-     #       elsif @freqscale === 'min'
-     #           @period = 60/@frequency
-     #       elsif @freqscale === 'hour'
-     #           @period = 3600/@frequency
-     #       end
-     #   end
-
-     #   def frequency=(freq)
-     #       @frequency=freq
-     #       update_period()
-     #   end
-     #   def freqscale=(scale)
-     #       @freqscale=scale
-     #       update_period()
-     #   end
 
     end
 end
