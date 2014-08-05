@@ -108,13 +108,33 @@ module OCCPGameServer
             }
             JSON.generate(info)
         end
+
+=begin
+    @api {get} /gameclock/states/ Read the game states
+    @apiVersion 0.1.0
+    @apiName GetGameStatesVerbs
+    @apiGroup Gameclock
+
+    @apiSuccess {String} stateverb Name of the verb used to set a state
+    @apiSuccess {Number} statevalue Value to use in state
+
+    @apiSuccessExample Success-Response:
+        HTTP/1.1 200 OK
+        [
+            {
+                "stateverb": "PAUSE",
+                "statevalue": 1
+            },
+            {
+                "stateverb": "READY",
+                "statevalue": 2
+            },
+            . . .
+        ]  
+=end
         get '/gameclock/states/' do
-            info = {
-                    :length => $appCore.gameclock.gamelength,
-                    :gametime => $appCore.gameclock.gametime,
-                    :state => @@game_states[$appCore.STATE]
-            }
-            JSON.generate(@@game_states)
+            res = @@game_state_verbs.inject([]){|memo,(k,v)| memo << {:stateverb=>v,:statevalue=>k}; memo }        
+            JSON.generate(res)
         end
 
 =begin
