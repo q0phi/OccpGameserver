@@ -4,6 +4,8 @@ module OCCPGameServer
     require'json'
     
     class WebListener < Sinatra::Base
+
+        VERSION='0.1.0'
         #Challenge Run States
         WAIT = 1
         READY = 2
@@ -42,9 +44,12 @@ module OCCPGameServer
         }
      
 =end
-        get '/' do
+        get '/', :provides => :json do
             info = {:Application => "OCCP GameServer", :Version => OCCPGameServer::VERSION}
             JSON.generate(info)
+        end
+        get '/', :provides => :html do
+            "<html><head><title><GameServer API Server</title></head><body><h1>GameServer API Server v#{VERSION} Started</h1></body></html>"
         end
 
 =begin
