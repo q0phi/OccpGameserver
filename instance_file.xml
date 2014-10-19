@@ -17,6 +17,7 @@
 
         <!-- Users for the web services console -->
         <users>
+            <user name="brandon" pass="workhere"/>
             <user name="moderator" pass="token"/>
             <user name="blueplayer" pass="token"/>
             <user name="spectator" pass="token"/>
@@ -41,6 +42,7 @@
                 <scoreboard name="moderator-board" />
                 <permitted-users>
                     <user name="moderator" />
+                    <user name="brandon" />
                 </permitted-users>    
             </user-interface>
         </user-interfaces>

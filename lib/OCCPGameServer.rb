@@ -188,7 +188,7 @@ module OCCPGameServer
                 new_team = Team.new
 
                 #TODO Decide if this needs fixing
-                new_team.teamid = i #SecureRandom.uuid
+                new_team.teamid = SecureRandom.uuid
                 i += 1
                 new_team.teamname = teamxmlnode.attributes["name"]
                 new_team.teamhost = teamxmlnode.find('team-host').first.attributes["hostname"]
@@ -492,7 +492,12 @@ module OCCPGameServer
         # Wait for Children to exit
         userInterface.join
         main.join
-        
+       
+        #Log final times
+        totalgametime = $appCore.endtime - $appCore.begintime
+        $log.info "Total game length: #{'%.2f' % totalgametime} sec"
+        $log.info "Total time paused: #{'%.2f' % (totalgametime - $appCore.gameclock.gametime)} sec"
+
         #Cleanup and Close Files
         $db.close
 
