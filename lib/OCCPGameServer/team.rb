@@ -146,9 +146,6 @@ class Team #Really the TeamScheduler
                 # Event Scheduler Thread Run Loop
                 while not @shuttingdown do
                     
-                    #Stats counter is for debugging only
-                    loops = loops + 1
-                    
                     clock = $appCore.gameclock.gametime
 
                     #Stop running this event after its end time
@@ -215,6 +212,9 @@ class Team #Really the TeamScheduler
                         $log.debug msgtext
 
                     end
+                    
+                    #Stats counter is for debugging only
+                    loops = loops + 1
 
                     @eventGroup.add(eventLocal)
 
