@@ -93,8 +93,9 @@ class ExecHandler < Handler
         # Prep the events command
         newCom = netNS.comwrap(event.command)
 
+        gameTimeStart = $appCore.gameclock.gametime
 
-        #TODO Optimize command speci;lization to arrays
+        #TODO Optimize command specialization to arrays
         begin
             # run the provided command
             #puts event.name + event.command.to_s
@@ -106,10 +107,12 @@ class ExecHandler < Handler
             $log.warn msg
         end
         
+        gameTimeEnd = $appCore.gameclock.gametime
         app_core.release_netns(netNS.nsName)
         
         #Log message that the event ran
-        msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventuid => event.eventuid, :custom => event.command }
+        msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventuid => event.eventuid, :custom => event.command,
+                    :starttime => gameTimeStart, :endtime => gameTimeEnd }
         
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
         

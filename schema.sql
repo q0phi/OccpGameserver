@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS score (
 
 CREATE TABLE IF NOT EXISTS event (
     time INTEGER,
+    gametimestart REAL,
+    gametimeend REAL,
     handler TEXT,
     eventname TEXT,
     eventuid TEXT,

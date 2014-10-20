@@ -214,6 +214,8 @@ module OCCPGameServer
                 when 'EVENTLOG'
                     #Log that an event was run       
                     tblArray = [Time.now.to_i, 
+                        message.msg[:starttime], 
+                        message.msg[:endtime], 
                         message.msg[:handler], 
                         message.msg[:eventname], 
                         message.msg[:eventuid], 
@@ -221,7 +223,7 @@ module OCCPGameServer
                         message.msg[:status] 
                     ]
 
-                    $db.execute("INSERT INTO event VALUES (?,?,?,?,?,?);", tblArray);
+                    $db.execute("INSERT INTO event VALUES (?,?,?,?,?,?,?,?);", tblArray);
                     $log.debug("Event Recorded in db.event")
 
                 when 'COMMAND'
