@@ -55,6 +55,9 @@ module OCCPGameServer
         end
         
         def resume
+            if @clockstate === :running
+                return true
+            end
             @mutex.synchronize do
                 @lastreadtime = Time.now
                 @clockstate = :running
@@ -63,6 +66,9 @@ module OCCPGameServer
         end
 
         def pause
+            if @clockstate === :paused
+                return true
+            end
             stopwatchdog
             @mutex.synchronize do
                 @gametime = Time.now - @lastreadtime + @gametime
