@@ -173,7 +173,7 @@
         <!-- Parent block for events in this teams event list -->
         <team-event-list>
             <team-event name="Ping Test" id="" guid="" handler="exec-handler-1"  ipaddress="pub_1"
-                starttime="1" endtime="10" frequency=".3" drift="0" 
+                starttime="1" endtime="10" frequency="3" drift="0" 
                 command="ping -c 2 10.24.32.10">
                 <score-atomic when="success" score-group="group1" points="5" />
                 <score-atomic when="fail" score-group="group2" points="-3" />
