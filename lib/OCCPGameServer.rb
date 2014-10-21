@@ -43,6 +43,8 @@ module OCCPGameServer
 
     include LibXML
 
+    $appCore = nil;
+
     # Takes an instance configuration file and returns an instance of the core application. 
     def self.instance_file_parser(instancefile)
 
@@ -490,15 +492,29 @@ module OCCPGameServer
         
          
         # Wait for Children to exit
-        userInterface.join
-        main.join
-       
+        if userInterface.alive?
+            $log.debug "Waiting to shutdown UI."
+            userInterface.join
+            $log.debug "Shutdown UI complete."
+        end
+        if main.alive?
+            $log.debug "Waiting to shutdown main."
+            main.join
+            $log.debug "Shutdown main complete."
+        end
+
         #Log final times
         totalgametime = $appCore.endtime - $appCore.begintime
         $log.info "Total game length: #{'%.2f' % totalgametime} sec"
         $log.info "Total time paused: #{'%.2f' % (totalgametime - $appCore.gameclock.gametime)} sec"
 
+        #Log final scores
+        $appCore.scoreKeeper.get_names.each{ |scoreName|
+            $log.info("Score " + scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s)
+        }
+
         #Cleanup and Close Files
+        $appCore.scoreKeeper.cleanup #close prepared transactions
         $db.close
 
         $log.info "GameServer shutdown complete"

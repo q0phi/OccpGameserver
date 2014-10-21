@@ -126,11 +126,17 @@ module OCCPGameServer
                     team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
                 }
                 @gameclock.pause
-                @endtime = Time.now
+                if @endtime == nil
+                    @endtime = Time.now
+                end
             when QUIT
                 @teams.each { |team|
                     team.INBOX << GMessage.new({:fromid=>'Main Thread',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> STOP}})
                 }
+                @gameclock.pause
+                if @endtime == nil
+                    @endtime = Time.now
+                end
                 exit_cleanup()
 
             end
@@ -166,11 +172,9 @@ module OCCPGameServer
             pid = spawn("ip netns list | grep occp_ | xargs -L 1 ip netns delete")
             Process.wait pid
             
-            @scoreKeeper.cleanup
-
-            $log.debug 'Team thread cleanup complete'
+            $log.debug 'Team threads cleanup complete'
             
-            Thread.exit
+            #Thread.exit
         end
  
         # Entry point for the post-setup code
@@ -190,7 +194,7 @@ module OCCPGameServer
             @STATE = READY
 
             #Poll the @INBOX waiting for tasks
-            while message = @INBOX.pop do
+            while @STATE != QUIT and message = @INBOX.pop do
 
                 case message.signal
                 
@@ -252,8 +256,11 @@ module OCCPGameServer
 
             end #@INBOX Poll
 
+            $log.debug "Waiting for Team join"
             #wait for all the teams to finish
             @localteams.each { |team| team[:thr].join }
+
+            $log.debug "Team join complete"
 
         end #def run
 
