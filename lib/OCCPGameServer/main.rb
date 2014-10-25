@@ -174,7 +174,6 @@ module OCCPGameServer
             
             $log.debug 'Team threads cleanup complete'
             
-            #Thread.exit
         end
  
         # Entry point for the post-setup code
