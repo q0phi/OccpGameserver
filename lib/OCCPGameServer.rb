@@ -504,10 +504,13 @@ module OCCPGameServer
         end
 
         #Log final times
-        totalgametime = $appCore.endtime - $appCore.begintime
-        $log.info "Total game length: #{'%.2f' % totalgametime} sec"
-        $log.info "Total time paused: #{'%.2f' % (totalgametime - $appCore.gameclock.gametime)} sec"
-
+        if  $appCore.endtime != nil and $appCore.begintime != nil
+            totalgametime = $appCore.endtime - $appCore.begintime
+            $log.info "Total game length: #{'%.2f' % totalgametime} sec"
+            $log.info "Total time paused: #{'%.2f' % (totalgametime - $appCore.gameclock.gametime)} sec"
+        else
+            $log.info "Total game length: NO TIME"
+        end
         #Log final scores
         $appCore.scoreKeeper.get_names.each{ |scoreName|
             $log.info("Score " + scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s)
