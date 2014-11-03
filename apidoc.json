@@ -1,0 +1,8 @@
+{
+    "name": "OCCP GameServer",
+    "version": "0.1.0",
+    "description": "OCCP GameServer API Documentation \n This documentation details the functions available to extract and change data in the GameServer while it is running a scenario.",
+    "title": "OCCPGS API"
+}
+
+

@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<occpchallenge>
+    <!-- Describe the current scenario; instance data can ovveride this section -->
+    <scenario gameid="1" 
+        name="Red Team vs. Blue Team"
+        type="Network Defense"
+        description="Blue team defends the network against automated Red team attacks. This scenario focuses on protecting against weak passwords and unused services.">
+
+        <!-- Length of time to run this scenario
+             time int
+             format {seconds, minutes, hours} 
+        -->
+        <length time="15" format="seconds" />
+
+        <!-- UNUSED Recommended virtual target network -->
+        <networkid number="1" />
+
+        <!-- Users for the web services console -->
+        <users>
+            <user name="brandon" pass="workhere"/>
+            <user name="moderator" pass="token"/>
+            <user name="blueplayer" pass="token"/>
+            <user name="spectator" pass="token"/>
+        </users>
+
+        <!-- When a user logs in to the system the components that are displayed are defined in these sections
+             TODO implement usage -->
+        <user-interfaces>
+            <user-interface name="spectator-ui"
+                            show-scoreboard="true"
+                            show-teams-all="false"
+                            show-other-controls="false">
+                <scoreboard name="spectator-board" />
+                <permitted-users>
+                    <user name="spectator" />
+                </permitted-users>    
+            </user-interface>
+            <user-interface name="moderator-ui"
+                            show-scoreboard="true"
+                            show-teams-all="true"
+                            show-other-controls="true">
+                <scoreboard name="moderator-board" />
+                <permitted-users>
+                    <user name="moderator" />
+                    <user name="brandon" />
+                </permitted-users>    
+            </user-interface>
+        </user-interfaces>
+        
+        <!-- Score groups labels allow certain events to be grouped together for score calculation 
+             Labels do require any special string. SQL expressions must return a single row and value. 
+             If more than one row is returned only the first row is used -->
+        <score-labels>
+            <!-- Example Default query if none provided -->
+            <score-label name="group1" sql="SELECT SUM(value) FROM SCORE WHERE groupname='group1'"/>
+            <!-- Example Additional WHERE clause parameters create a 5 minute sliding window -->
+            <score-label name="webserverstatus" sql="SELECT SUM(value) FROM SCORE WHERE groupname='webserverstatus' AND time > (time('now') - 300)"/>
+            <!-- Example Default sum query is used -->
+            <score-label name="redteam" />
+            <score-label name="blueteam" />
+            <!-- Example Query may use any columns in the score table-->
+            <score-label name="teamtotal" sql='SELECT SUM(value) FROM SCORE WHERE groupname!="webserverstatus"'/> 
+        </score-labels>
+
+        <!-- Scores are calculated by making calculations from the groups of the labels above -->
+        <!-- Each score-name is treated as ERb template; use score-label as variables in calculation-->
+        <score-names>
+                <score-name name="red-team" descr="Red Team" formula="group1 - webserverstatus + redteam" />
+                <score-name name="blue-team" descr="Blue Team" formula="blueteam + webserverstatus - redteam" />
+                <score-name name="service-level" descr="Service Level" formula="group1 + webserverstatus + teamtotal" />
+        </score-names>
+
+        <!-- Scoreboards show a particular grouping of scores to user accts with permission -->
+        <!-- This section is used by the web interfaces -->
+        <scoreboards>
+            <scoreboard name="moderator-board" update-rate="live">
+                <score-name name="red-team" />
+                <score-name name="blue-team" />
+                <score-name name="service-level" />
+            </scoreboard>
+            <scoreboard name="spectator-board" update-rate="live">
+                <score-name name="red-team" />
+                <score-name name="blue-team" />
+                <score-name name="service-level" />
+            </scoreboard>
+            <scoreboard name="player-board" update-rate="1min">
+                <score-name name="red-team" />
+                <score-name name="blue-team" />
+                <score-name name="service-level" />
+            </scoreboard>
+        </scoreboards>
+
+
+    </scenario>
+
+    <!-- Host describes the machine that is running the gameserver software. 
+         Each network port to be used must be named and listed to be used in events.
+         -->
+    <host label="gameserver" hostname="gameserver">
+        <interface name="eth0" network="pub" />
+        <interface name="eth1" network="prvt"  />
+        <interface name="eth2" network="int" />
+    </host>
+
+    <!-- IP pools describe pools of ip addresses that an event can use as source addresses. These are useful
+         for allocating to zombie traffic where the particular source address does not matter. 
+         Each pool has the following attributes
+         
+         Each pool will only can unique addresses. If pool definition specifies overlapping addresses only one address
+         is used in the pool. -->
+    <ip-pools>
+        <!-- Simplest definition is a list of one address. 
+             Lists are comma separated IPv4 addresses of the format X.X.X.X with no CIDR. -->
+        <pool name="int_2" network="prvt" cidr="24" gateway="">
+            <address type="list">10.3.3.2</address>
+        </pool>
+        <!-- A range is defined by a  CIDR denoted address block
+             count is the number of addresses to add to the pool-->
+        <pool name="int_1" network="prvt" cidr="24" gateway="">
+            <address type="range" count="12" addr="10.24.15.0/24" select="asc" />
+            <address type="list">10.3.3.2, 10.3.3.3, 128.15.23.4, 143.34.21.9</address>
+        </pool>
+        <pool name="pub_1" network="prvt" cidr="24" gateway="" >
+            <address type="range" count="9" addr="16.0.0.0/8" select="asc" />
+            <address type="range" count="23" addr="78.3.0.0/24" select="asc" />
+            <address type="range" count="15" addr="200.15.14.0/24" select="asc" />
+        </pool>
+        <pool name="prvt_1" network="prvt" cidr="24" gateway="">
+            <address type="range" count="11" addr="87.15.0.0/20" select="asc" />
+        </pool>
+    </ip-pools>
+    
+    <!-- NOT USED, RESERVED FOR FEDERATION.
+         Identify each location that team processes will execute.
+         Each of these locations needs to be contacted to dispatch the appropriate team code to. 
+         These hosts need to specified in the host section. -->
+    <!-- <team-hosts>
+        <team-host name="Local"
+                     hostname="localhost"
+                     ip-addr="127.0.0.1"
+                     port="24365" />
+        <team-host name="RemoteHost1"
+                     hostname="RemoteHostName"
+                     ip-addr="0.0.0.0"
+                     port="24365" />
+    </team-hosts>
+   -->
+
+    <!-- Identify the handlers needed to run events 
+         name - is locally referenced in the instance file only
+         class-handler - must specifiy the Class name of the handler
+    -->
+    <event-handlers>
+        <handler name="exec-handler-1" 
+                    class-handler="ExecHandler" />
+        <handler name="metasploit-handler-1"
+                    class-handler="MetasploitHandler"
+                    server-hostname="host1"
+                    server-ip=""
+                    server-port="" />
+    </event-handlers>
+
+    <!-- Team describes a collection of events for orgizational structure 
+         name - the friendly name of the team -->
+    <team name="Blue Team">
+    
+        <!-- Identifies the name of the location to dispatch this team to -->
+        <team-host hostname="localhost" />
+              
+        <!-- Rate at which events are executed from the event list -->
+        <speed factor="1.0" />
+        
+        <!-- Parent block for events in this teams event list -->
+        <team-event-list>
+            <team-event name="Ping Test" id="" guid="" handler="exec-handler-1"  ipaddress="pub_1"
+                starttime="1" endtime="10" frequency="3" drift="0" 
+                command="ping -c 2 10.24.32.10">
+                <score-atomic when="success" score-group="group1" points="5" />
+                <score-atomic when="fail" score-group="group2" points="-3" />
+            </team-event>
+            <team-event name="Exec Test" id="" guid="" handler="exec-handler-1" ipaddress="pub_1"
+                starttime="10" endtime="9999999" frequency="0" drift="0" 
+                command="ping -c 1 10.24.32.10">
+                <score-atomic when="success" score-group="group1" points="5" />
+                <score-atomic when="fail" score-group="group2" points="-3" />
+            </team-event>
+            <team-event name="ping" id="" guid="" handler="exec-handler-1" ipaddress="prvt_1"
+                starttime="5" endtime="9999999" frequency="2" drift="0"
+                command="ping -c 1 10.24.32.10">
+                <score-atomic when="success" score-group="group1" points="5" />
+                <score-atomic when="fail" score-group="group2" points="-3" />
+            </team-event>
+            <team-event name="Which" id="" guid="" handler="exec-handler-1" ipaddress="int_1"
+                starttime="8" endtime="9999999" frequency="0" drift="0" 
+                command="ping -c 2 10.24.32.10">
+                <score-atomic when="success" score-group="group1" points="25" />
+                <score-atomic when="fail" score-group="group2" points="-1" />
+            </team-event>
+           
+        </team-event-list>
+    </team>
+    <team name="Red Team">
+    
+        <!-- Identifies the name of the location to dispatch this team to -->
+        <team-host hostname="localhost" />
+              
+        <!-- Rate at which events are executed from the event list -->
+        <speed factor="1.0" />
+        
+        <!-- Parent block for events in this teams event list -->
+        <team-event-list>
+            <team-event name="Ping Test" id="" guid="" handler="exec-handler-1" ipaddress="pub_1"
+                starttime="10" endtime="9999999" frequency="0" drift="0" 
+                command="ping -c 4 127.0.0.1">
+                <score-atomic when="success" score-group="group1" points="5" />
+                <score-atomic when="fail" score-group="group2" points="-3" />
+            </team-event>
+            <team-event name="Exec Test" id="" guid="" handler="exec-handler-1" ipaddress="int_1"
+                starttime="0" endtime="9999999" frequency="0" drift="0" 
+                command="ping -c 1 127.0.4.3">
+                <score-atomic when="success" score-group="group1" points="5" />
+                <score-atomic when="fail" score-group="group2" points="-3" />
+            </team-event>
+            <team-event name="Arping" id="" guid="" handler="exec-handler-1" ipaddress="int_1"
+                starttime="16" endtime="9999999" frequency="0" drift="0" 
+                command="arping -c 1 127.0.2.3">
+                <score-atomic when="success" score-group="group1" points="5" />
+                <score-atomic when="fail" score-group="group2" points="-3" />
+            </team-event>
+            <team-event name="Arping" id="" guid="" handler="exec-handler-1" ipaddress="int_1"
+                starttime="5" endtime="9999999" frequency="0" drift="0" 
+                command="arping -c 1 10.24.32.10">
+                <score-atomic when="success" score-group="group1" points="5" />
+                <score-atomic when="fail" score-group="group2" points="-3" />
+            </team-event>
+            <team-event name="Which" id="" guid="" handler="exec-handler-1" ipaddress="int_1"
+                starttime="0" endtime="9999999" frequency="0" drift="0" 
+                command="which ping">
+                <score-atomic when="success" score-group="group1" points="25" />
+                <score-atomic when="fail" score-group="group2" points="-1" />
+            </team-event>
+          
+        </team-event-list>
+    </team>
+
+</occpchallenge>
