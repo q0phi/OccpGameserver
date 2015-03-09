@@ -202,14 +202,21 @@ class Team #Really the TeamScheduler
                         Log4r::NDC.inherit(stackLocal.clone)
                         $log.debug("Launching Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)} for the #{loops} time")
 
-                        #Run the event through its handler
-                        event_handler.run(evOne, app_core)
+                        begin
 
-                        slept = evOne.frequency + drift
-                        msgtext = "PERIODIC ".green + evOne.name.to_s.light_magenta + " " +
-                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + slept.to_s.light_magenta + " " + $appCore.gameclock.gametime.round(4).to_s.green
-                        
-                        $log.debug msgtext
+                            #Run the event through its handler
+                            event_handler.run(evOne, app_core)
+
+                            slept = evOne.frequency + drift
+                            msgtext = "PERIODIC ".green + evOne.name.to_s.light_magenta + " " +
+                                launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + slept.to_s.light_magenta + " " + $appCore.gameclock.gametime.round(4).to_s.green
+                            $log.debug msgtext
+
+                        rescue Error => e
+
+                            $log.warn "Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} error: #{e.message}"
+
+                        end
 
                     end
                     

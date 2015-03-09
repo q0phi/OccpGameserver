@@ -206,6 +206,7 @@ module OCCPGameServer
                 when 'SCORE'
                     #We are receiving a score hash that should be added to the appropriate score group
                     timeT = Time.now.to_i
+                    #TODO Add game time
                     group = message.msg[:scoregroup]
                     value = message.msg[:value]
                     eventuid = message.msg[:eventuid]
