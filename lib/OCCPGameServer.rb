@@ -29,9 +29,11 @@ require "OCCPGameServer/webservices"
 require "OCCPGameServer/Handlers/handler"
 require "OCCPGameServer/Handlers/exechandler"
 require "OCCPGameServer/Handlers/metasploithandler"
+require "OCCPGameServer/Handlers/nagiospluginhandler"
 require "OCCPGameServer/Events/event"
 require "OCCPGameServer/Events/execevent"
 require "OCCPGameServer/Events/metasploitevent"
+require "OCCPGameServer/Events/nagiospluginevent"
 
 module OCCPGameServer
     #Challenge Run States
