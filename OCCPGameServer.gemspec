@@ -32,4 +32,5 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "netaddr", "~> 1.5"
   spec.add_runtime_dependency "sinatra", "~> 1.4"
   spec.add_runtime_dependency "thin", "~> 1.6"
+  spec.add_runtime_dependency "net-scp", "~> 1.2"
 end
