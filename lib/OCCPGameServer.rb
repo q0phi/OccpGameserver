@@ -17,6 +17,7 @@ require "colorize"
 require 'securerandom'
 require 'simple-random'
 require 'netaddr'
+require 'net/smtp'
 
 require "OCCPGameServer/version"
 require "OCCPGameServer/main"
@@ -30,10 +31,12 @@ require "OCCPGameServer/Handlers/handler"
 require "OCCPGameServer/Handlers/exechandler"
 require "OCCPGameServer/Handlers/metasploithandler"
 require "OCCPGameServer/Handlers/nagiospluginhandler"
+require "OCCPGameServer/Handlers/emailhandler"
 require "OCCPGameServer/Events/event"
 require "OCCPGameServer/Events/execevent"
 require "OCCPGameServer/Events/metasploitevent"
 require "OCCPGameServer/Events/nagiospluginevent"
+require "OCCPGameServer/Events/emailevent"
 
 module OCCPGameServer
     #Challenge Run States
