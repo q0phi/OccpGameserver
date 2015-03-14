@@ -217,7 +217,7 @@ module OCCPGameServer
                     end
                 
                 end
-
+                Log4r::NDC.pop
             end #END NetNS initialize
             
             ##
