@@ -121,12 +121,14 @@ module OCCPGameServer
             poolHash = pool.attributes.to_h
             poolHash = poolHash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
             
-            poolIfName = main_runner.interfaces.find{|interface| poolHash[:network] == interface[:network]}
-            if poolIfName == nil
+            definedPool = main_runner.interfaces.find{|interface| poolHash[:network] == interface[:network]}
+            if definedPool == nil
                     msg = "WARNING in file #{instancefile}: #{pool.line_num.to_s} - No defined interfaces for network #{poolHash[:network]} in address pool #{poolHash[:name]}"
                     $log.warn(msg.to_s.light_yellow)
                     puts msg.to_s.light_yellow
-                    poolIfName == nil
+                    poolIfName = nil
+            else
+                poolIfName = definedPool[:name]
             end
 
             poolHash.merge!({:ifname => poolIfName})

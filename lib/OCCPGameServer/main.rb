@@ -25,7 +25,7 @@ module OCCPGameServer
             @scoreKeeper = Score.new
             
             @interfaces = Array.new     #{:name=>'eth0', :network=>'pub1'}
-            @ipPools = {}
+            @ipPools = {}               #{"poolName" => {poolHash}, ... }
             @nsPool = Array.new
             @nsRegistry = IPTools::NetNSRegistry.new
 
