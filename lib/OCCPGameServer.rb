@@ -18,7 +18,7 @@ require 'securerandom'
 require 'simple-random'
 require 'netaddr'
 require 'net/smtp'
-require 'net-scp'
+require 'net/scp'
 
 require "OCCPGameServer/version"
 require "OCCPGameServer/main"
@@ -49,6 +49,8 @@ module OCCPGameServer
     RUN = 3
     STOP = 4
     QUIT = 5
+
+    String.disable_colorization = false
 
     include LibXML
 

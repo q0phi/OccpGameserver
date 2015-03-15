@@ -46,6 +46,22 @@ class ScpHandler < Handler
         event.find('parameters/param').each { |param|
             new_event.attributes << { param.attributes["name"] => param.attributes["value"] }
         }
+
+        #Specific entries in the command
+        targetServer = event.find('server').first 
+        new_event.serverip = targetServer["ipaddress"]
+        new_event.serverport = targetServer["port"]
+        new_event.serveruser = targetServer["username"]
+        new_event.serverpass = targetServer["password"]
+
+        event.find('upload').each{ |upload|
+            new_event.uploads << { source: upload["local"], dest: upload["remote"] }
+        }
+        event.find('download').each{ |download|
+            new_event.downloads << { source: download["remote"], dest: download["local"] }
+        }
+        
+
         
         return new_event
     end
@@ -54,9 +70,8 @@ class ScpHandler < Handler
 
         Log4r::NDC.push('ScpHandler:')
         
-        #nsCommand = event.command
-            # setup the execution space
-            # IE get a network namespace for this execution for the given IP address
+        # setup the execution space
+        # IE get a network namespace for this execution for the given IP address
         if event.ipaddress != nil
             ipPool = app_core.get_ip_pool(event.ipaddress)
             if ipPool[:ifname] != nil 
@@ -70,23 +85,56 @@ class ScpHandler < Handler
                     $log.error msg.red
                     return
                 end
-                # Prep the events command
-                # nsCommand = netNS.comwrap(event.command)
+            else
+                $log.warn "Unable to run #{event.name} with invalid pool definition; aborting execution".light_yellow
+                return
             end
         end
 
 
         gameTimeStart = $appCore.gameclock.gametime
 
-        #TODO Optimize command specialization to arrays
         begin
-            # run the provided command
-            fd= IO.sysopen('/var/run/netns/' + netNS.nsName, 'r')
+            # Change to the correct network namespace
+            fd = IO.sysopen('/var/run/netns/' + netNS.nsName, 'r')
             success = $setns.call(fd, 0)
-           
-            success = system(event.command, [:out, :err]=>'/dev/null')
+            
+            raise ArgumentError, 'could not change to correct namespace' if success != 0
+            success = nil
+
+            failedMoves = {}
+            successMoves = {}
+            $log.debug "Beginning SCP session to remote server"
+            #success = system(event.command, [:out, :err]=>'/dev/null')
+            Net::SCP.start(event.serverip, event.serveruser, {:password => event.serverpass, :number_of_password_prompts => 1}){ |scp|
+                event.uploads.each{ |uploadF|
+                    begin
+                        if File.stat(uploadF[:source]).file?
+                            scp.upload! uploadF[:source], uploadF[:dest]
+                            successMoves.merge!({uploadF[:source] => nil})
+                        end
+                    rescue Exception => e
+                        failedMoves.merge!({uploadF[:source] => e})
+                    end
+                }
+                event.downloads.each{ |downloadF|
+                    begin
+                        scp.download! downloadF[:source], downloadF[:dest]
+                        successMoves.merge!({downloadF[:source] => nil})
+                    rescue Exception => e
+                        failedMoves.merge!({downloadF[:source] => e})
+                    end
+                }
+            }
+            $log.debug "Closed SCP session to remote server" 
+            success = true
+
+        rescue Net::SSH::AuthenticationFailed => e
+            # User failed to login
+            success = false
+            $log.warn "Event failed to run: #{e.message}".red
+
         rescue Exception => e
-            app_core.release_netns(netNS.nsName)
             msg = "Event failed to run: #{e.message}".red
             $log.warn msg
         end
@@ -100,9 +148,10 @@ class ScpHandler < Handler
         
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
         
-        if( success === true )
+        if( success === true and failedMoves.length === 0)
 
             $log.info "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS".green
+            successMoves.each{ |file, error| $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS ".green + file.to_s }
             app_core.INBOX << GMessage.new({:fromid=>'ScpHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
             
             #Score Database
@@ -117,7 +166,10 @@ class ScpHandler < Handler
                 $log.error(msg)
 
         else
-            $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "FAILED".light_red
+            $log.info "#{event.name} #{event.eventuid.light_magenta} " + "FAILED".light_red
+            failedMoves.each{ |file, error| $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "FAILED ".light_red + file.to_s + "  " + error.to_s }
+            successMoves.each{ |file, error| $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS ".green + file.to_s }
+            
             app_core.INBOX << GMessage.new({:fromid=>'ScpHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
             
             #Score Database
