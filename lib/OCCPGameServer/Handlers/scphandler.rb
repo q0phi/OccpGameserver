@@ -107,7 +107,7 @@ class ScpHandler < Handler
             Net::SCP.start(event.serverip, event.serveruser, {:password => event.serverpass, :number_of_password_prompts => 1}){ |scp|
                 event.uploads.each{ |uploadF|
                     begin
-                        if File.stat(uploadF[:source]).file?
+                        if File.file?(uploadF[:source])
                             scp.upload! uploadF[:source], uploadF[:dest]
                             successMoves.merge!({uploadF[:source] => nil})
                         end
