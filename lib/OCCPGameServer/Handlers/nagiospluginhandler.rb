@@ -55,7 +55,18 @@ class NagiosPluginHandler < Handler
         event.find('parameters/param').each { |param|
             new_event.attributes << { param.attributes["name"] => param.attributes["value"] }
         }
-        
+       
+        # Locate the Nagios command and process it 
+        comm = event.find('command').first
+        raise ArgumentError, "no executable command defined" if comm == nil 
+        commData = comm.content.strip
+        raise ArgumentError, "no executable command defined" if commData.empty?
+
+        commData = File.join(NAGIOS_PLUGINS_DIR, commData)
+        raise ArgumentError, "no plugin found installed at #{commData.split[0]}" if not File.file?(commData.split[0])
+
+        new_event.command = commData
+ 
         return new_event
     end
 
