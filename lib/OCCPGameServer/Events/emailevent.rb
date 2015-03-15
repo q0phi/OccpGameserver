@@ -11,7 +11,7 @@ module OCCPGameServer
     def get_command
        
         # Use the Nagios plugin to send the message
-        combase = File.join(GameServerConfig::NAGIOS_PLUGINS_DIR, "check_smtp_send")
+        combase = File.join(NAGIOS_PLUGINS_DIR, "check_smtp_send")
         # Generate a Unique message id
         # Forge the sending server to be the same as the from address
         messageid = Time.now.to_i.to_s + '.' + SecureRandom.uuid + '@' + @fqdn
