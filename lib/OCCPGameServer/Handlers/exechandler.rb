@@ -1,21 +1,8 @@
 module OCCPGameServer
 class ExecHandler < Handler
 
-    @@ipAddress = Struct.new(:ipaddress) do
-        def get_address
-            if ipaddress == 'random'
-                ip = ''
-            else
-                ip = ipaddress
-            end
-            return ip
-        end
-    end
-
     def initialize(ev_handler_hash)
         super
-
-        @interface = ev_handler_hash[:interface]
 
     end
 

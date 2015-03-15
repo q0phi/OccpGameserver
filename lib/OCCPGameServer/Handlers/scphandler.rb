@@ -4,8 +4,6 @@ class ScpHandler < Handler
     def initialize(ev_handler_hash)
         super
 
-        @interface = ev_handler_hash[:interface]
-
     end
 
     # Parse the exec event xml code into a execevent object
