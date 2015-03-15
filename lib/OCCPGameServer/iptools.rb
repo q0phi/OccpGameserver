@@ -11,7 +11,7 @@ module OCCPGameServer
                 @regMutex = Mutex.new
                 # Protect namespaces from being thrashed
                 @shortList = Array.new
-                @lifetime = GameServerConfig::NETNS_LIFETIME #seconds
+                @lifetime = NETNS_LIFETIME #seconds
             end
 
             def get_registered_netns(netAddr)
