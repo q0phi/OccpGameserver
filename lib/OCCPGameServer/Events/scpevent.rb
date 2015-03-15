@@ -10,10 +10,6 @@ module OCCPGameServer
         @uploads = Array.new
         @downloads = Array.new
 
-        #raise ArgumentError, "no executable command defined" if eh[:command].nil? || eh[:command].empty?
-        @command = eh[:command]
-        
-
     end
 
     end #End Class
