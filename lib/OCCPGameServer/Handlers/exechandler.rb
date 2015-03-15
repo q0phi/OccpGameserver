@@ -58,6 +58,13 @@ class ExecHandler < Handler
             new_event.attributes << { param.attributes["name"] => param.attributes["value"] }
         }
         
+        comm = event.find('command').first
+        raise ArgumentError, "no executable command defined" if comm == nil 
+        commData = comm.content
+        raise ArgumentError, "no executable command defined" if commData.empty?
+
+        new_event.command = commData 
+
         return new_event
     end
 
