@@ -28,26 +28,23 @@ class NagiosPluginHandler < Handler
 
     # Parse the exec event xml code into a execevent object
     def parse_event(event, appCore)
-        require 'securerandom'
-
-        eh = event.attributes.to_h.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
-        
-        eh.merge!({:eventuid => SecureRandom.uuid})
+        eh = super
 
         new_event  = NagiosPluginEvent.new(eh)
-       
-        # cross-verify event networking
-        #netHash = appCore.get_network(new_event.network)
-        #raise ArgumentError, "event network label not defined #{new_event.network}" if netHash.nil? || netHash.empty?
 
-        # check for a valid ip address or pool name
-        #begin
-        #    NetAddr.validate_ip_addr(event[:ipaddress])
-        #    new_event.ipaddress = event[:ipaddress]
-        #rescue NetAddr::ValidationError => e
-            raise ArgumentError, "event ip addrress or pool name not valid: #{event[:ipaddress]}" if !appCore.ipPools.member?(event[:ipaddress])
-            new_event.ipaddress = event[:ipaddress]
-        #end
+         # Check if the :ipaddress field is included
+        if eh.include?(:ipaddress)
+            # Check if the pool specified exists and has a valid interface
+            if !appCore.ipPools.member?(eh[:ipaddress]) 
+                raise ArgumentError, "event ip address pool name not valid: #{eh[:ipaddress]}"
+            elsif appCore.ipPools[eh[:ipaddress]][:ifname] == nil
+                $log.warn "Event #{eh[:name]} uses ip address pool with no interface associated".light_yellow
+            end
+            # Assign the pool name even if their is no interface ready
+            new_event.ipaddress = eh[:ipaddress]
+        else
+            $log.debug "Event #{eh[:name]} does not define an ip address pool; local exec only"
+        end
 
         # Add scores to event
         event.find('score-atomic').each{ |score|
@@ -78,39 +75,36 @@ class NagiosPluginHandler < Handler
 
         Log4r::NDC.push('NagiosPluginHandler:')
         
-        # setup the execution space
-        # IE get a network namespace for this execution for the given IP address
-        ipPool = app_core.get_ip_pool(event.ipaddress)
-        if ipPool.nil? || ipPool.empty?
-            raise ArgumentError, "event ip address pool not defined"
+        if event.ipaddress != nil
+            ipPool = app_core.get_ip_pool(event.ipaddress)
+            if ipPool[:ifname] != nil 
+                ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
+                netInfo = {:iface => ipPool[:ifname], :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
+                begin
+                    netNS = app_core.get_netns(netInfo) 
+                rescue ArgumentError => e
+                    msg = "unable to create network namespace for event #{e}; aborting execution"
+                    print msg.red
+                    $log.error msg.red
+                    return
+                end
+            else
+                $log.debug "Event #{event.name} ip address pool does not define an interface; local exec only"
+            end
         end
-        
-        netLink = app_core.get_network(ipPool[:network])[:name]
-        if netLink.nil? || netLink.empty?
-            raise ArgumentError, "event ip address pool interface not defined"
-        end
-       
-        ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
-        netInfo = {:iface => netLink, :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
-        #print "net info #{netInfo}"
-        begin
-            netNS = app_core.get_netns(netInfo) 
-        rescue ArgumentError => e
-            msg = "unable to create network namespace for event #{e}"
-            print msg.red
-            $log.error msg.red
-        end
-
-        # Prep the events command
-        newCom = netNS.comwrap(event.command)
 
         gameTimeStart = $appCore.gameclock.gametime
 
         #TODO Optimize command specialization to arrays
         begin
+             # Change to the correct network namespace
+            fd = IO.sysopen('/var/run/netns/' + netNS.nsName, 'r')
+            success = $setns.call(fd, 0)
+            
+            raise ArgumentError, 'could not change to correct namespace' if success != 0
+
             # run the provided command
-            #puts event.name + event.command.to_s
-            success = system(newCom, [:out, :err]=>'/dev/null')
+            success = system(event.command, [:out, :err]=>'/dev/null')
         
         rescue Exception => e
             app_core.release_netns(netNS.nsName)
