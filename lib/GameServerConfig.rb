@@ -15,4 +15,5 @@ module OCCPGameServer
     NAGIOS_PLUGINS_DIR = '/usr/lib/nagios/plugins/'
 
 
+    LOG_SHORT_UIDS = true
 end

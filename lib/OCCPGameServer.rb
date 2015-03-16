@@ -19,6 +19,7 @@ require 'simple-random'
 require 'netaddr'
 require 'net/smtp'
 require 'net/scp'
+require 'mysql2'
 
 require "OCCPGameServer/version"
 require "OCCPGameServer/main"
@@ -35,12 +36,14 @@ require "OCCPGameServer/Handlers/metasploithandler"
 require "OCCPGameServer/Handlers/nagiospluginhandler"
 require "OCCPGameServer/Handlers/emailhandler"
 require "OCCPGameServer/Handlers/scphandler"
+require "OCCPGameServer/Handlers/dbhandler"
 require "OCCPGameServer/Events/event"
 require "OCCPGameServer/Events/execevent"
 require "OCCPGameServer/Events/metasploitevent"
 require "OCCPGameServer/Events/nagiospluginevent"
 require "OCCPGameServer/Events/emailevent"
 require "OCCPGameServer/Events/scpevent"
+require "OCCPGameServer/Events/dbevent"
 
 module OCCPGameServer
     #Challenge Run States

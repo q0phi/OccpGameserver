@@ -33,4 +33,5 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "sinatra", "~> 1.4"
   spec.add_runtime_dependency "thin", "~> 1.6"
   spec.add_runtime_dependency "net-scp", "~> 1.2"
+  spec.add_runtime_dependency "mysql2", "~> 0.3.8"
 end
