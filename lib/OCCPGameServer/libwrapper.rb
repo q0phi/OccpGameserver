@@ -2,7 +2,17 @@ module OCCPGameServer
 
     require 'fiddle'
 
-    libc6 = Fiddle.dlopen('/lib/x86_64-linux-gnu/libc.so.6')
+    #find libc
+    x86_64 ='/lib/x86_64-linux-gnu/libc.so.6'
+    i386 = '/lib/i386-linux-gnu/libc.so.6'
+
+    if File.exist?(x86_64)
+        libc6 = Fiddle.dlopen(x86_64)
+    elsif File.exist?(i386)
+        libc6 = Fiddle.dlopen(i386)
+    else
+        raise Error, "cannot support namespace shifting"
+    end
 
     #p libc6['CLONE_NEWNET']
 
