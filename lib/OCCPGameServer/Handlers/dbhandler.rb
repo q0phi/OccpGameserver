@@ -54,7 +54,6 @@ class DbHandler < Handler
         new_event.dbpass = targetServer["password"]
 
         event.find('action').each{ |action|
-            p action.to_s
             if action["file"] != nil
                 new_event.actions << { file: action["file"] }
             elsif action["sql"] != nil
