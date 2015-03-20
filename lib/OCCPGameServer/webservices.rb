@@ -437,6 +437,29 @@ module OCCPGameServer
             end
             res
         end
+
+
+        get '/scores/' do
+            score_names = $appCore.scoreKeeper.get_names
+            res = JSON.generate(score_names)
+            res
+        end
+        get '/scores/:name/' do
+               output = '' 
+            $appCore.scoreKeeper.get_names.each do |scorename|
+                if scorename == params[:name]
+                    value = $appCore.scoreKeeper.get_score(scorename)
+                    output = { scorename => value }
+                end
+            end
+            res = JSON.generate(output)
+            
+            res
+        end
+
+
+
+
     end #End Class
 
 end #End Module

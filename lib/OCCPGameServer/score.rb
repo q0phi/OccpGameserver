@@ -74,7 +74,11 @@ module OCCPGameServer
                 }
 
                 score = eval(formula)
-                return score
+                if !score.nan?
+                    return score
+                else
+                    return 0
+                end
             end
             nil
         end
