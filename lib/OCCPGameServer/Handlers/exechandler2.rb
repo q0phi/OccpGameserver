@@ -1,14 +1,6 @@
 module OCCPGameServer
-class NagiosPluginHandler < Handler
+class ExecHandler2 < Handler
 
-    @@nagiosStatus = {
-        0 => 'OK',
-        1 => 'WARNING',
-        2 => 'CRITICAL',
-        3 => 'UNKNOWN',
-    }
-
-   
     def initialize(ev_handler_hash)
         super
 
@@ -16,11 +8,12 @@ class NagiosPluginHandler < Handler
 
     # Parse the exec event xml code into a execevent object
     def parse_event(event, appCore)
+        # Perform basic hash conversion
         eh = super
-
-        new_event  = NagiosPluginEvent.new(eh)
-
-         # Check if the :ipaddress field is included
+        
+        new_event  = ExecEvent.new(eh)
+        
+        # Check if the :ipaddress field is included
         if eh.include?(:ipaddress)
             # Check if the pool specified exists and has a valid interface
             if !appCore.ipPools.member?(eh[:ipaddress]) 
@@ -36,16 +29,12 @@ class NagiosPluginHandler < Handler
 
         # Add scores to event
         event.find('score-atomic').each{ |score|
-            token = { }
+            token = {:succeed => true}
             case score.attributes["when"]
-            when 'OK'
-                token = {:status => 0}
-            when 'WARNING'
-                token = {:status => 1}
-            when 'CRITICAL'
-                token = {:status => 2}
-            when 'UNKNOWN'
-                token = {:status => 3}
+            when 'success'
+                token = {:succeed => true}
+            when 'fail'
+                token = {:succeed => false}
             end
             new_event.scores << token.merge( {:scoregroup => score.attributes["score-group"],
                                                 :value => score.attributes["points"].to_f } )
@@ -55,25 +44,24 @@ class NagiosPluginHandler < Handler
         event.find('parameters/param').each { |param|
             new_event.attributes << { param.attributes["name"] => param.attributes["value"] }
         }
-       
-        # Locate the Nagios command and process it 
+        
         comm = event.find('command').first
         raise ArgumentError, "no executable command defined" if comm == nil 
-        commData = comm.content.strip
+        commData = comm.content
         raise ArgumentError, "no executable command defined" if commData.empty?
 
-        commData = File.join(NAGIOS_PLUGINS_DIR, commData)
-        raise ArgumentError, "no plugin found installed at #{commData.split[0]}" if not File.file?(commData.split[0])
+        new_event.command = commData 
 
-        new_event.command = commData
- 
         return new_event
     end
 
     def run(event, app_core)
 
-        Log4r::NDC.push('NagiosPluginHandler:')
+        Log4r::NDC.push('ExecHandler:')
         
+        nsCommand = event.command
+            # setup the execution space
+            # IE get a network namespace for this execution for the given IP address
         if event.ipaddress != nil
             ipPool = app_core.get_ip_pool(event.ipaddress)
             if ipPool[:ifname] != nil 
@@ -87,67 +75,61 @@ class NagiosPluginHandler < Handler
                     $log.error msg.red
                     return
                 end
-            else
-                $log.debug "Event #{event.name} ip address pool does not define an interface; local exec only"
+                # Prep the events command
+                nsCommand = netNS.comwrap(event.command)
             end
         end
+
 
         gameTimeStart = $appCore.gameclock.gametime
 
         #TODO Optimize command specialization to arrays
         begin
-             # Change to the correct network namespace
-            fd = IO.sysopen('/var/run/netns/' + netNS.nsName, 'r')
-            success = $setns.call(fd, 0)
-            
-            raise ArgumentError, 'could not change to correct namespace' if success != 0
-
             # run the provided command
-            success = system(event.command, [:out, :err]=>'/dev/null')
+            success = system(nsCommand, [:out, :err]=>'/dev/null')
         
         rescue Exception => e
             app_core.release_netns(netNS.nsName)
             msg = "Event failed to run: #{e.message}".red
             $log.warn msg
         end
-
-        if $?.nil?
-            returnValue = 3
-        else
-            returnValue = $?.exitstatus
-        end
         
         gameTimeEnd = $appCore.gameclock.gametime
         app_core.release_netns(netNS.nsName)
         
         #Log message that the event ran
-        msgHash = {:handler => 'NagiosPluginHandler', :eventname => event.name, :eventid => event.eventid, :eventuid => event.eventuid, :custom => event.command,
+        msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventid => event.eventid, :eventuid => event.eventuid, :custom => event.command,
                     :starttime => gameTimeStart, :endtime => gameTimeEnd }
         
-        $log.debug "#{event.eventuid.light_magenta} returned #{returnValue} after executing #{event.command}"
+        $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
         
-        if( success === nil )
+        if( success === true )
+
+            $log.info "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS".green
+            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
+            
+            #Score Database
+            event.scores.each {|score|
+                if score[:succeed]
+                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
+                end
+            }
+
+        elsif( success === nil )
                 msg = "Command failed to run: #{event.command}"
                 $log.error(msg)
-                Log4r::NDC.pop
-                return nil
-        elsif( returnValue === 0 ) #OK
 
-            $log.info "#{event.name} #{event.eventuid.light_magenta} " + @@nagiosStatus[returnValue].green
-            app_core.INBOX << GMessage.new({:fromid=>'NagiosPluginHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'OK'}) })
-        elsif( [1,2,3].include?(returnValue) ) 
-            $log.debug "#{event.name} #{event.eventuid.light_magenta} " + @@nagiosStatus[returnValue].light_red
-            app_core.INBOX << GMessage.new({:fromid=>'NagiosPluginHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
         else
-            $log.error "Nagios plugin horrific failure".light_red
+            $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "FAILED".light_red
+            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
+            
+            #Score Database
+            event.scores.each {|score|
+                if !score[:succeed]
+                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
+                end
+            }
         end
-
-        # Record Scores to Database
-        event.scores.each {|score|
-            if score[:status] === returnValue 
-                app_core.INBOX << GMessage.new({:fromid=>'NagiosPluginHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
-            end
-        }
 
         Log4r::NDC.pop
 

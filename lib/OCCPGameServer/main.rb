@@ -222,12 +222,13 @@ module OCCPGameServer
                         message.msg[:endtime], 
                         message.msg[:handler], 
                         message.msg[:eventname], 
+                        message.msg[:eventid], 
                         message.msg[:eventuid], 
                         message.msg[:custom], 
                         message.msg[:status] 
                     ]
 
-                    $db.execute("INSERT INTO event VALUES (?,?,?,?,?,?,?,?);", tblArray);
+                    $db.execute("INSERT INTO event VALUES (?,?,?,?,?,?,?,?,?);", tblArray);
                     $log.debug("Event Recorded in db.event")
 
                 when 'COMMAND'

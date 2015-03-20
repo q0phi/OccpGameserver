@@ -98,7 +98,7 @@ class ExecHandler < Handler
         app_core.release_netns(netNS.nsName)
         
         #Log message that the event ran
-        msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventuid => event.eventuid, :custom => event.command,
+        msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventid => event.eventid, :eventuid => event.eventuid, :custom => event.command,
                     :starttime => gameTimeStart, :endtime => gameTimeEnd }
         
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"

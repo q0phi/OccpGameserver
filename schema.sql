@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS event (
     gametimeend REAL,
     handler TEXT,
     eventname TEXT,
+    eventid TEXT,
     eventuid TEXT,
     custom TEXT,
     status TEXT

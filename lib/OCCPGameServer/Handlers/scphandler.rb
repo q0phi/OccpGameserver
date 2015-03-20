@@ -104,7 +104,7 @@ class ScpHandler < Handler
             successMoves = {}
             $log.debug "Beginning SCP session to remote server"
             #success = system(event.command, [:out, :err]=>'/dev/null')
-            Net::SCP.start(event.serverip, event.serveruser, {:password => event.serverpass, :number_of_password_prompts => 1}){ |scp|
+            Net::SCP.start(event.serverip, event.serveruser, {:password => event.serverpass, :number_of_password_prompts => 1, :timeout=>3}){ |scp|
                 event.uploads.each{ |uploadF|
                     begin
                         if File.file?(uploadF[:source])
@@ -141,7 +141,7 @@ class ScpHandler < Handler
         app_core.release_netns(netNS.nsName)
         
         #Log message that the event ran
-        msgHash = {:handler => 'ScpHandler', :eventname => event.name, :eventuid => event.eventuid, :custom => event.command,
+        msgHash = {:handler => 'ScpHandler', :eventname => event.name, :eventid => event.eventid, :eventuid => event.eventuid, :custom => event.command,
                     :starttime => gameTimeStart, :endtime => gameTimeEnd }
         
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"

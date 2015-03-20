@@ -116,7 +116,8 @@ class DbHandler < Handler
                         :username => event.dbuser,
                         :password => event.dbpass,
                         :database => event.dbname,
-                        :flags => Mysql2::Client::MULTI_STATEMENTS )
+                        :flags => Mysql2::Client::MULTI_STATEMENTS,
+                        :connect_timeout => 5)
 
             event.actions.each{ |action|
                 # Get the SQL statements from file or directly
@@ -152,7 +153,7 @@ class DbHandler < Handler
         app_core.release_netns(netNS.nsName)
         
         #Log message that the event ran
-        msgHash = {:handler => 'DbHandler', :eventname => event.name, :eventuid => event.eventuid, :custom => event.actions.to_s,
+        msgHash = {:handler => 'DbHandler', :eventname => event.name, :eventid => event.eventid, :eventuid => event.eventuid, :custom => event.actions.to_s,
                     :starttime => gameTimeStart, :endtime => gameTimeEnd }
         
         $log.debug "#{lgeventuid.light_magenta} executed #{event.actions.to_s}"
