@@ -15,7 +15,13 @@ module OCCPGameServer
 
             @eventhandler = eh[:handler]
             @eventuid = eh[:eventuid]
-           
+          
+            if !eh[:id].nil?
+                @eventid = eh[:id]
+            else
+                @eventid = ''
+            end
+
             @mutex = Mutex.new
             @hasrun = false
 
