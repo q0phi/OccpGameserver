@@ -6,13 +6,6 @@ class Team #Really the TeamScheduler
     attr_accessor :singletonList, :periodicList, :INBOX
     attr_reader :STATE
 
-    #Thread State Modes
-    WAIT = 1
-    READY = 2
-    RUN = 3
-    STOP = 4
-    QUIT = 5
-
     def initialize()
 
         require 'securerandom'
@@ -26,7 +19,7 @@ class Team #Really the TeamScheduler
     
         @INBOX = Queue.new
 
-        @periodThread = Array.new
+        @periodThreads = Array.new
         @singletonThread = Array.new
         
         @singletonList = Array.new
@@ -55,13 +48,15 @@ class Team #Really the TeamScheduler
 
     def set_state(state)
 
+        raise InvalidState, "invalid state value sent: #{state}" if !OCCPGameServer.valid_state(state)
+
         oldstate = @STATE
         @STATE = state
 
         case state
         when WAIT
             if oldstate === RUN
-                @periodThread.each{|evThread|
+                @periodThreads.each{|evThread|
                     if evThread.alive?
                         evThread.run
                     end
@@ -73,7 +68,7 @@ class Team #Really the TeamScheduler
             end
         when RUN
             if oldstate === WAIT
-                @periodThread.each{|evThread|
+                @periodThreads.each{|evThread|
                     if evThread.alive?
                         evThread.wakeup
                     end
@@ -85,7 +80,7 @@ class Team #Really the TeamScheduler
         when STOP
             @shuttingdown = true
             #Kill the PERIODIC Loops
-            @periodThread.each{|evThread|
+            @periodThreads.each{|evThread|
                 if evThread.alive?
                     evThread.run
                 end
@@ -124,7 +119,7 @@ class Team #Really the TeamScheduler
 
         #Launch a separate thread for each of the periodically scheduled events.
         @periodicList.each {|event|
-            @periodThread << Thread.new {
+            @periodThreads << Thread.new {
         
                 Log4r::NDC.set_max_depth(72)
                 Log4r::NDC.inherit(stackLocal.clone)
@@ -157,7 +152,7 @@ class Team #Really the TeamScheduler
                     while evOne.starttime > clock or sleepFor > 0
 
                         clock = $appCore.gameclock.gametime
-                        #Special case while waiting to for starttime
+                        #Special case while waiting to go for starttime
                         startSleep = evOne.starttime - clock
                         if startSleep > 0
                             sleep(startSleep)
@@ -361,7 +356,7 @@ class Team #Really the TeamScheduler
 
         end #Message Poll End
 
-        @periodThread.each {|thr|
+        @periodThreads.each {|thr|
             thr.join
         }
         @eventGroup.list.each{|ev|

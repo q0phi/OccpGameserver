@@ -22,6 +22,8 @@ require 'net/scp'
 require 'mysql2'
 
 require "OCCPGameServer/version"
+require "OCCPGameServer/constants"
+require "OCCPGameServer/utils"
 require "OCCPGameServer/main"
 require "OCCPGameServer/gameclock"
 require "OCCPGameServer/team"
@@ -47,12 +49,6 @@ require "OCCPGameServer/Events/scpevent"
 require "OCCPGameServer/Events/dbevent"
 
 module OCCPGameServer
-    #Challenge Run States
-    WAIT = 1
-    READY = 2
-    RUN = 3
-    STOP = 4
-    QUIT = 5
 
     String.disable_colorization = false
 
