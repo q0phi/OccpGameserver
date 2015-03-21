@@ -4,6 +4,7 @@ class Team #Really the TeamScheduler
 
     attr_accessor :teamname, :teamid, :speedfactor, :teamhost
     attr_accessor :singletonList, :periodicList, :INBOX
+    attr_accessor :singletonThread, :eventGroup
     attr_reader :STATE
 
     def initialize()
@@ -123,63 +124,76 @@ class Team #Really the TeamScheduler
 
                 $log.debug("Creating periodic thread scheduler for: #{evOne.name} #{evOne.eventuid}")
                 #threaduid = evOne.eventuid
-                sleepFor = 0
-                drift = 0
-                    
-                loops = 0
+                
                 # Get the handler from the $appCore and launch the event
                 event_handler = $appCore.get_handler(evOne.eventhandler)
 
-                if @STATE === WAIT
-                    Thread.stop
-                end
+                drift = 0    
+                loops = 0
+                periodSleepCycle = 0
+                runOnce = false
                 # Event Scheduler Thread Run Loop
                 while not @shuttingdown do
                     
+                    #If interupted from sleep in order to pause, stop quickly
+                    if @STATE === WAIT
+                        Thread.stop
+                        #When we wakeup restart the sleep-loop
+                        #next
+                    elsif @STATE === STOP
+                        break
+                    end
+                    
                     clock = $appCore.gameclock.gametime
 
-                    #Stop running this event after its end time
-                    if evOne.endtime < clock
-                        break
-                    end
-
-                    # Keep sleeping until the start time or until the next iteration
-                    while evOne.starttime > clock or sleepFor > 0
-
-                        clock = $appCore.gameclock.gametime
-                        #Special case while waiting to go for starttime
+                    # Keep sleeping until the start time
+                    if evOne.starttime > clock
                         startSleep = evOne.starttime - clock
-                        if startSleep > 0
-                            sleep(startSleep)
-                        end
+                        sleep(startSleep)
+                        next # When we wakeup check the STATE
 
-                        #Check if last sleep cycle was interupted and continue it if needed
-                        if sleepFor > 0
-                            preClock = $appCore.gameclock.gametime
-                            sleep(sleepFor)
-                            postClock = $appCore.gameclock.gametime
-                            sleepFor = sleepFor - (postClock - preClock)
-                        end
-
-                        if sleepFor > 0 
-                            $log.debug("Woke up #{evOne.name} #{evOne.eventuid}")
-                        end
-                        #If interupted from sleep in order to pause, stop quickly
-                        if @STATE === WAIT
-                            Thread.stop
-                            #When we wakeup restart the sleep-loop
-                            next
-                        elsif @STATE === STOP
-                            break
-                            #$log.debug("CRUSHING EXIT".red)
-                            #Thread.exit
-                        end
-                    end
-                    
-                    
-                    if @STATE === STOP
+                    #Stop running this event after its end time
+                    elsif evOne.endtime < clock
                         break
+                    
+                    #Sleep for one full period
+                    elsif periodSleepCycle > 0.0
+                        preClock = $appCore.gameclock.gametime
+                        sleep(periodSleepCycle) # We don't use sleep return because it is rounded
+                        postClock = $appCore.gameclock.gametime
+                        periodActualSleep = postClock - preClock
+                        periodSleepCycle -= periodActualSleep 
+                        if periodSleepCycle > 0.0
+                            next # We have been interupted so check STATE
+                        end
+                    elsif runOnce #We have just run and it is time to sleep for one new period
+
+                        # Calculate or next sleep period
+                        drift = evOne.drift.eql?(0.0) ? 0.0 : Random.rand(evOne.drift*2)-(evOne.drift)
+                        periodSleepCycle = evOne.frequency + drift
+
+                        preClock = $appCore.gameclock.gametime
+                        sleep(periodSleepCycle) # We don't use sleep return because it is rounded
+                        postClock = $appCore.gameclock.gametime
+                        periodActualSleep = postClock - preClock
+                        
+                        $log.debug "periodSleepCycle: #{periodSleepCycle} periodActualSleep: #{periodActualSleep}"
+                        periodSleepCycle -= periodActualSleep
+                        if periodSleepCycle > 0.0
+                            next # We have been interupted so check STATE
+                        end
+
+                  #      #Check if last sleep cycle was interupted and continue it if needed
+                  #      if sleepFor > 0
+                  #          preClock = $appCore.gameclock.gametime
+                  #          sleep(sleepFor)
+                  #          postClock = $appCore.gameclock.gametime
+                  #          sleepFor = sleepFor - (postClock - preClock)
+                  #      end
+                        $log.debug("Woke up #{evOne.name} #{evOne.eventuid}")
                     end
+                    $log.debug "Starting next launch"
+                    runOnce = true
 
                     #For now an event and it's handler code are going to be assumed to run atomically from the scheduler
                     #IE once the handler has launched it can do whatever it wants until it returns
@@ -187,10 +201,10 @@ class Team #Really the TeamScheduler
                     eventLocal = Thread.new do
 
                         launchAt = $appCore.gameclock.gametime
-                        
+                        thisloop = loops
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
-                        $log.debug("Launching Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)} for the #{loops} time")
+                        $log.debug("Launching Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)} for the #{thisloop} time")
 
                         begin
 
@@ -198,8 +212,10 @@ class Team #Really the TeamScheduler
                             event_handler.run(evOne, app_core)
 
                             slept = evOne.frequency + drift
-                            msgtext = "PERIODIC ".green + evOne.name.to_s.light_magenta + " " +
-                                launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + slept.to_s.light_magenta + " " + $appCore.gameclock.gametime.round(4).to_s.green
+                            msgtext = "PERIODIC Scheduler: ".green + evOne.name.to_s.light_magenta + " #{thisloop} " +
+                                launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " +
+                                slept.to_s.light_magenta + " " + $appCore.gameclock.gametime.round(4).to_s.green
+
                             $log.debug msgtext
 
                         rescue Error => e
@@ -214,9 +230,6 @@ class Team #Really the TeamScheduler
                     loops = loops + 1
 
                     @eventGroup.add(eventLocal)
-
-                    drift = evOne.drift.eql?(0.0) ? 0.0 : Random.rand(evOne.drift*2)-(evOne.drift)
-                    sleepFor = evOne.frequency + drift
                    
                 end # end Event Scheduler Thread Loop
                 $log.debug("Exiting scheduler loop for: #{evOne.name} #{evOne.eventuid}".red)
