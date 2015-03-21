@@ -19,8 +19,8 @@ class Team #Really the TeamScheduler
     
         @INBOX = Queue.new
 
-        @periodThreads = Array.new
-        @singletonThread = Array.new
+        @periodThreads = ThreadGroup.new
+        @singletonThread = nil
         
         @singletonList = Array.new
         @periodicList = Array.new
@@ -58,22 +58,17 @@ class Team #Really the TeamScheduler
         case state
         when WAIT
             if oldstate === RUN
-                @periodThreads.each{|evThread|
-                    if evThread.alive?
-                        evThread.run
-                    end
+                @periodThreads.list.each{|evSchedThr|
+                    evSchedThr.run
                 }
-                #puts @singletonThread.inspect
                 if @singletonThread.alive?
                     @singletonThread.run
                 end
             end
         when RUN
             if oldstate === WAIT
-                @periodThreads.each{|evThread|
-                    if evThread.alive?
-                        evThread.wakeup
-                    end
+                @periodThreads.list.each{|evSchedThr|
+                    evSchedThr.wakeup
                 }
                 if @singletonThread.alive?
                     @singletonThread.wakeup
@@ -82,10 +77,8 @@ class Team #Really the TeamScheduler
         when STOP
             @shuttingdown = true
             #Kill the PERIODIC Loops
-            @periodThreads.each{|evThread|
-                if evThread.alive?
-                    evThread.run
-                end
+            @periodThreads.list.each{|evSchedThr|
+                evSchedThr.run
             }
             if @singletonThread.alive?
                 @singletonThread.run
@@ -121,7 +114,7 @@ class Team #Really the TeamScheduler
 
         #Launch a separate thread for each of the periodically scheduled events.
         @periodicList.each {|event|
-            @periodThreads << Thread.new {
+            periodThread = Thread.new {
         
                 Log4r::NDC.set_max_depth(72)
                 Log4r::NDC.inherit(stackLocal.clone)
@@ -228,6 +221,7 @@ class Team #Really the TeamScheduler
                 end # end Event Scheduler Thread Loop
                 $log.debug("Exiting scheduler loop for: #{evOne.name} #{evOne.eventuid}".red)
             }#end periodThread
+            @periodThreads.add(periodThread)
         } #end periodicList
 
         ### Sparse Event Run Thread ###
@@ -358,7 +352,7 @@ class Team #Really the TeamScheduler
 
         end #Message Poll End
 
-        @periodThreads.each {|thr|
+        @periodThreads.list.each {|thr|
             thr.join
         }
         @eventGroup.list.each{|ev|
