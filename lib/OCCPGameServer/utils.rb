@@ -12,4 +12,7 @@ module OCCPGameServer
         return false
     end
 
+    def self.constant_by_value( val )
+        constants.find{ |name| const_get(name)==val }
+    end
 end

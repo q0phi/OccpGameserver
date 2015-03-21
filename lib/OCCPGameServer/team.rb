@@ -49,6 +49,8 @@ class Team #Really the TeamScheduler
     def set_state(state)
 
         raise InvalidState, "invalid state value sent: #{state}" if !OCCPGameServer.valid_state(state)
+        stateName = OCCPGameServer.constant_by_value(state)
+        $log.debug "Team #{@teamname} changing state to #{stateName}"
 
         oldstate = @STATE
         @STATE = state
