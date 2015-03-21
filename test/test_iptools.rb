@@ -8,6 +8,9 @@ require "log4r"
 require_relative "../lib/OCCPGameServer/iptools"
 require_relative "../lib/OCCPGameServer/errors"
 
+$tmpDir = "#{File.dirname(__FILE__)}/test/tmp"
+system('mkdir -p '+$tmpDir, [:out, :err]=>'/dev/null')
+
 class IPToolsTest < Minitest::Test
 
     def initialize( somevar )
@@ -21,9 +24,8 @@ class IPToolsTest < Minitest::Test
                     '10.24.32.129']
 
         #This directory is required to exist
-        system('mkdir -p /var/run/netns')
         $log = Log4r::Logger.new('occp::gameserver::testlog')
-       # fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => 'testlog.log'})
+       # fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => "#{$tmpDir}/testlog.log"})
        # fileoutputter.formatter = Log4r::PatternFormatter.new({:pattern => "[%l] %d %x %m", :date_pattern => "%m-%d %H:%M:%S"})
        # $log.outputters = [fileoutputter]
  
@@ -126,7 +128,7 @@ class IPToolsBench < Minitest::Benchmark
         @netObj = NetDef.new
         
         $log = Log4r::Logger.new('occp::gameserver::testlog')
-        fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => "#{File.dirname(__FILE__)}/testlog_benchmarks.log"})
+        fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => "#{$tmpDir}/testlog_benchmarks.log"})
         fileoutputter.formatter = Log4r::PatternFormatter.new({:pattern => "[%l] %d %x %m", :date_pattern => "%m-%d %H:%M:%S"})
         $log.outputters = [fileoutputter]
  
