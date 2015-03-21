@@ -39,7 +39,8 @@ module OCCPGameServer
                         $log.debug 'IP namespace not found in registry'
 
                         # create the ns if it does not exist
-                        raise ArgumentError if system("ip netns list | grep -e '^#{nsName}$'") == 0
+                        # I don't know if this check is neccesary, when we try to add the name space it will just fail later
+                        # raise NamespaceError, 'namespace name already exists' if system("ip netns list | grep -E '^#{nsName}$'", [:out, :err]=>"/dev/null") == true
                         nsHandle = NetNS.new(netNSName, netAddr) #IPTools.ns_create(netNSName, netAddr)
 
                         @registry[netNSName] = {:handle => nsHandle, :refcount => 1, :lastuse => Time.now.to_f}
@@ -120,19 +121,19 @@ module OCCPGameServer
 
                 #Just dump the traffic on the interface if no gateway specified
                 if netAddr[:gateway].nil? || netAddr[:gateway].empty?
-                    gateway =  " ip route delete default ||
-                                 ip route add default via #{@ipaddr}\""
+                    gateway = # " ip route delete default ||
+                                " ip route add default via #{@ipaddr}\""
                 else
-                    gateway =  " ip route delete default ||
-                                 ip route add #{netAddr[:gateway]} dev eth0 &&
-                                 ip route add default via #{netAddr[:gateway]}"
+                    gateway = # " ip route delete default ||
+                               " ip route add #{netAddr[:gateway]} dev eth0 &&
+                                 ip route add default via #{netAddr[:gateway]}\""
                 end
 
                 #TODO Move this some place beeeter out of the event launch path
                 #Set the master interface into promisc mode so we can receive replies for the fake-interface
                # pid = spawn("ip link set #{@rootIF} promisc on", [:out,:err]=>"/dev/null")
                # Process.wait pid
-               # raise ArgumentError, "failed to set link #{@rootIF} to promisc mode" if $?.exitstatus != 0
+               # raise NamespaceError, "failed to set link #{@rootIF} to promisc mode" if $?.exitstatus != 0
                 
                 # This helps not repeating the temp interface names
                 @@serial += 1
@@ -143,11 +144,12 @@ module OCCPGameServer
                 cache ="ip link add link #{@rootIF} dev #{tempIFace} type macvlan mode private &&
                         ip netns add #{@nsName} &&
                         ip link set #{tempIFace} netns #{@nsName} &&
-                        ip netns exec #{@nsName} /bin/sh -c \"ip link set #{tempIFace} name eth0 &&
-                        ip addr add #{@ipDomain} dev eth0 &
-                        ip link set lo up &
-                        ip link set eth0 up &&" + gateway
+                        ip netns exec #{@nsName} /bin/sh -c \"ip link set #{tempIFace} name eth0 && 
+                                                                ip addr add #{@ipDomain} dev eth0 &&
+                                                                ip link set lo up &&
+                                                                ip link set eth0 up &&" + gateway
 
+                cache.delete!("\n")
                 pid = spawn(cache , [:out,:err]=>"/dev/null")
 
                 Process.wait pid
@@ -158,6 +160,7 @@ module OCCPGameServer
                 else
                     npid = []
                     $log.debug "Failed speed set of namespace #{@nsName} trying slow setup"
+                    # This cleanup might be too agressive
                     npid << spawn("ip link delete #{tempIFace}", [:out,:err]=>"/dev/null")
                     npid << spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
                     npid.each {|ipid|
@@ -170,7 +173,7 @@ module OCCPGameServer
                 $log.debug "Creating temporary link to interface #{rootIF}"
                 pid = spawn("ip link add link #{@rootIF} dev #{tempIFace} type macvlan mode private", [:out,:err]=>"/dev/null")
                 Process.wait pid
-                raise ArgumentError, "failed to create initial link #{tempIFace}" if $?.exitstatus != 0
+                raise NamespaceError, "failed to create initial link #{tempIFace}" if $?.exitstatus != 0
 
                 $log.debug "Creating namespace"
                 pid = spawn("ip netns add #{@nsName}", [:out,:err]=>"/dev/null")
@@ -179,7 +182,7 @@ module OCCPGameServer
                     #Clean the link created
                     pid = spawn("ip link delete #{tempIFace}", [:out,:err]=>"/dev/null")
                     Process.wait pid
-                    raise ArgumentError, "failed to create namespace named: #{@nsName}"
+                    raise NamespaceError, "failed to create namespace named: #{@nsName}"
                 end
 
                 $log.debug "Moving link into namespace"
@@ -192,7 +195,7 @@ module OCCPGameServer
                     #Clean the namespace created
                     pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
                     Process.wait pid
-                    raise ArgumentError, "failed to move interface #{tempIFace} into namespace #{@nsName} "
+                    raise NamespaceError, "failed to move interface #{tempIFace} into namespace #{@nsName} "
                 end
             
                 $log.debug "Changing local link name"
@@ -202,7 +205,7 @@ module OCCPGameServer
                     #Clean the namespace created; this auto-deletes the link created earlier
                     pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
                     Process.wait pid
-                    raise ArgumentError, "failed to change local link name"
+                    raise NamespaceError, "failed to change local link name"
                 end
 
                 $log.debug "Adding address to local link in namespace"
@@ -212,7 +215,7 @@ module OCCPGameServer
                     #Clean the namespace created
                     pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
                     Process.wait pid
-                    raise ArgumentError, "failed to add address #{@ipaddr} to iface"
+                    raise NamespaceError, "failed to add address #{@ipaddr} to iface"
                 end
 
                 $log.debug "Setting interfaces UP"
@@ -224,7 +227,7 @@ module OCCPGameServer
                     #Clean the namespace created
                     pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
                     Process.wait pid
-                    raise ArgumentError, "failed to set link active"
+                    raise NamespaceError, "failed to set link active"
                 end
                 
                 pid = spawn("ip netns exec #{@nsName} ip route delete default", [:out,:err]=>"/dev/null") #print("rem default route\n")
@@ -238,7 +241,7 @@ module OCCPGameServer
                         #Clean the namespace created
                         pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
                         Process.wait pid
-                        raise ArgumentError, "failed to set default gateway"
+                        raise NamespaceError, "failed to set default gateway"
                     end
                 else
                     $log.debug "Adding default gateway via #{netAddr[:gateway]}"
@@ -249,7 +252,7 @@ module OCCPGameServer
                         #Clean the namespace created
                         pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
                         Process.wait pid
-                        raise ArgumentError, "failed to set gateway as link local"
+                        raise NamespaceError, "failed to set gateway as link local"
                     end
                     
                     pid = spawn("ip netns exec #{@nsName} ip route add default via #{netAddr[:gateway]}") #print("add default route\n")
@@ -258,7 +261,7 @@ module OCCPGameServer
                         #Clean the namespace created
                         pid = spawn("ip netns delete #{@nsName}", [:out,:err]=>"/dev/null")
                         Process.wait pid
-                        raise ArgumentError, "failed to set default gateway"
+                        raise NamespaceError, "failed to set default gateway"
                     end
                 
                 end
@@ -301,7 +304,7 @@ module OCCPGameServer
         def self.ns_create(nsName, netAddr)
             $log.debug "Creating namespace for #{nsName}"
             #check if the name or ip has been issued
-            #raise ArgumentError if system("ip netns list | grep -E '^#{nsName}$'") == 0
+            #raise NamespaceError, 'namespace name already exists' if system("ip netns list | grep -E '^#{nsName}$'", [:out, :err]=>"/dev/null") == true
             NetNS.new(nsName, netAddr)
         end
 

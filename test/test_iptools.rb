@@ -6,6 +6,7 @@ require "minitest/benchmark"
 require "socket"
 require "log4r"
 require_relative "../lib/OCCPGameServer/iptools"
+require_relative "../lib/OCCPGameServer/errors"
 
 class IPToolsTest < Minitest::Test
 
@@ -106,12 +107,13 @@ class IPToolsBench < Minitest::Benchmark
             netAddr[:cidr] = '24'
             netAddr[:gateway] = nil
             @netAddr = netAddr
+            @seri = 0
         end
         def rerun(n)
             n.times do |count|
-                field1 = OCCPGameServer::IPTools.ns_create("OCCPns#{count}", @netAddr)
-                field1.delete
+                OCCPGameServer::IPTools.ns_create("OCCP#{@seri}ns#{count}", @netAddr)
             end
+                @seri += 1
         end
     end
 
@@ -124,9 +126,9 @@ class IPToolsBench < Minitest::Benchmark
         @netObj = NetDef.new
         
         $log = Log4r::Logger.new('occp::gameserver::testlog')
-       # fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => 'testlog_benchmarks.log'})
-       # fileoutputter.formatter = Log4r::PatternFormatter.new({:pattern => "[%l] %d %x %m", :date_pattern => "%m-%d %H:%M:%S"})
-       # $log.outputters = [fileoutputter]
+        fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => "#{File.dirname(__FILE__)}/testlog_benchmarks.log"})
+        fileoutputter.formatter = Log4r::PatternFormatter.new({:pattern => "[%l] %d %x %m", :date_pattern => "%m-%d %H:%M:%S"})
+        $log.outputters = [fileoutputter]
  
         #$log = Logger.new(STDOUT)
         #$log.level = Logger::DEBUG
@@ -138,6 +140,7 @@ class IPToolsBench < Minitest::Benchmark
         assert_performance_linear 0.99 do |n|
             @netObj.rerun(n)
         end
+        `ip netns list | grep -E 'OCCP' | xargs -L 1 ip netns delete`
     end
 
 end
