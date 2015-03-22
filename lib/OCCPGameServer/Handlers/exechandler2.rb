@@ -80,9 +80,6 @@ class ExecHandler2 < Handler
             end
         end
 
-
-        #gameTimeStart = $appCore.gameclock.gametime
-
         #TODO Optimize command specialization to arrays
         begin
             # run the provided command
@@ -94,25 +91,19 @@ class ExecHandler2 < Handler
             $log.warn msg
         end
         
-        #gameTimeEnd = $appCore.gameclock.gametime
         app_core.release_netns(netNS.nsName)
         
-        #Log message that the event ran
-        #msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventid => event.eventid, :eventuid => event.eventuid, :custom => event.command,
-         #           :starttime => gameTimeStart, :endtime => gameTimeEnd }
-        
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
+        
         returnScores = Array.new 
         status = UNKNOWN
         if( success === true )
 
             $log.info "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS".green
-            #app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
             
             #Score Database
             event.scores.each {|score|
                 if score[:succeed]
-                   # app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
                     returnScores << score
                 end
             }
@@ -125,12 +116,10 @@ class ExecHandler2 < Handler
             status = UNKNOWN
         else
             $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "FAILED".light_red
-            #app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
             
             #Score Database
             event.scores.each {|score|
                 if !score[:succeed]
-                    #app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
                     returnScores << score
                 end
             }

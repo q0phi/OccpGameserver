@@ -219,13 +219,13 @@ class Team #Really the TeamScheduler
                                 slept.to_s.light_magenta + " " + finishAt.round(4).to_s.green
 
                             $log.debug msgtext
-                            msgHash = runResult.merge({:starttime => launchAt, :endtime => finishAt })
-                            #$appCore.INBOX << GMessage.new({:fromid=>'Team', :signal=>'SCORE', :msg=>msgHash)})
                             runResult[:scores].each {|score|
                                 score.merge!({:eventuid => evOne.eventuid, :eventid => evOne.eventid, 
                                                 :gametime => finishAt })
                                 app_core.INBOX << GMessage.new({:fromid=>'Team',:signal=>'SCORE', :msg=>score})
                             }
+                            msgHash = runResult.merge({:eventname => evOne.name, :eventid=> evOne.eventid, :eventuid=> evOne.eventuid, 
+                                                      :starttime => launchAt, :endtime => finishAt })
                             $appCore.INBOX << GMessage.new({:fromid=>'Team', :signal=>'EVENTLOG', :msg=>msgHash })
 
                         rescue Error => e
