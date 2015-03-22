@@ -35,6 +35,7 @@ require "OCCPGameServer/libwrapper"
 require "OCCPGameServer/errors"
 require "OCCPGameServer/Handlers/handler"
 require "OCCPGameServer/Handlers/exechandler"
+require "OCCPGameServer/Handlers/exechandler2"
 require "OCCPGameServer/Handlers/metasploithandler"
 require "OCCPGameServer/Handlers/nagiospluginhandler"
 require "OCCPGameServer/Handlers/emailhandler"
@@ -274,7 +275,7 @@ module OCCPGameServer
             raise ArgumentError, 'Argument label-name cannot be blank' if name.nil? || name.empty?
             
             if sql.nil? || sql.empty?
-                sql = "SELECT SUM(value) FROM SCORE WHERE groupname='#{name}'"
+                sql = "SELECT SUM(value) FROM SCORES WHERE groupname='#{name}'"
             end
 
             begin

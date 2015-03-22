@@ -206,12 +206,13 @@ module OCCPGameServer
                 when 'SCORE'
                     #We are receiving a score hash that should be added to the appropriate score group
                     timeT = Time.now.to_i
-                    #TODO Add game time
+                    gametime = message.msg[:gametime]
                     group = message.msg[:scoregroup]
                     value = message.msg[:value]
+                    eventid = message.msg[:eventid]
                     eventuid = message.msg[:eventuid]
 
-                    $db.execute("INSERT INTO score VALUES (?,?,?,?)", [timeT, eventuid, group, value])
+                    $db.execute("INSERT INTO scores VALUES (?,?,?,?,?,?)", [timeT, gametime, eventid, eventuid, group, value])
                     $log.debug("Score recorded in db.score")
 
                
@@ -228,7 +229,7 @@ module OCCPGameServer
                         message.msg[:status] 
                     ]
 
-                    $db.execute("INSERT INTO event VALUES (?,?,?,?,?,?,?,?,?);", tblArray);
+                    $db.execute("INSERT INTO events VALUES (?,?,?,?,?,?,?,?,?);", tblArray);
                     $log.debug("Event Recorded in db.event")
 
                 when 'COMMAND'

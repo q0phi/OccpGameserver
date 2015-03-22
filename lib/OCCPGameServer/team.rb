@@ -200,23 +200,33 @@ class Team #Really the TeamScheduler
                     #If the GS is paused while it is running tough beans for us.
                     eventLocal = Thread.new do
 
-                        launchAt = $appCore.gameclock.gametime
-                        thisloop = loops
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
+                        
+                        launchAt = $appCore.gameclock.gametime
+                        thisloop = loops
                         $log.debug("Launching Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)} for the #{thisloop} time")
 
                         begin
 
                             #Run the event through its handler
-                            event_handler.run(evOne, app_core)
+                            runResult = event_handler.run(evOne, app_core)
 
+                            finishAt = $appCore.gameclock.gametime
                             slept = evOne.frequency + drift
                             msgtext = "PERIODIC Scheduler: ".green + evOne.name.to_s.light_magenta + " #{thisloop} " +
                                 launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " +
-                                slept.to_s.light_magenta + " " + $appCore.gameclock.gametime.round(4).to_s.green
+                                slept.to_s.light_magenta + " " + finishAt.round(4).to_s.green
 
                             $log.debug msgtext
+                            msgHash = runResult.merge({:starttime => launchAt, :endtime => finishAt })
+                            #$appCore.INBOX << GMessage.new({:fromid=>'Team', :signal=>'SCORE', :msg=>msgHash)})
+                            runResult[:scores].each {|score|
+                                score.merge!({:eventuid => evOne.eventuid, :eventid => evOne.eventid, 
+                                                :gametime => finishAt })
+                                app_core.INBOX << GMessage.new({:fromid=>'Team',:signal=>'SCORE', :msg=>score})
+                            }
+                            $appCore.INBOX << GMessage.new({:fromid=>'Team', :signal=>'EVENTLOG', :msg=>msgHash })
 
                         rescue Error => e
 

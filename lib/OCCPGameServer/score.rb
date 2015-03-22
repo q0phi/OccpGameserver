@@ -9,9 +9,9 @@ module OCCPGameServer
             @ScoreLabel = Struct.new(:name, :raw_sql, :prepared_sql) do
 
                 def get_sql
-                    sql = "SELECT SUM(value) FROM SCORE WHERE groupname='#{name}'"
+                    sql = "SELECT SUM(value) FROM SCORES WHERE groupname='#{name}'"
                     if not select.nil?
-                        sql = "SELECT #{select} FROM SCORE"
+                        sql = "SELECT #{select} FROM SCORES"
                         if not where.nil?
                             sql += " WHERE #{where}"
                         end
