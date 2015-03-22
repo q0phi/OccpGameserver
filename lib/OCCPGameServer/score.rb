@@ -48,6 +48,7 @@ module OCCPGameServer
             
             #Look up the formula for this scorename
             formula = nil
+            finalScore = nil
             @names.each{ |scoreName|
                 if scoreName.name == name
                     formula = scoreName.formula
@@ -73,14 +74,22 @@ module OCCPGameServer
                     }
                 }
 
-                score = eval(formula)
-                if !score.nan?
-                    return score
-                else
-                    return 0
+                begin
+                    score = eval(formula).to_f
+                    if !score.nan?
+                        finalScore = score
+                    else
+                        finalScore = 0.0
+                    end
+                rescue Exception => e
+                    $log.warn "Score #{name} formula is invalid"
                 end
+            
+            else
+                $log.error "Score #{name} formula not defined"
             end
-            nil
+
+            return finalScore
         end
 
         def cleanup
