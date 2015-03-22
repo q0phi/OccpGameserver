@@ -23,12 +23,6 @@ module OCCPGameServer
             end
 
             @ScoreName = Struct.new(:name, :formula, :descr) do
-                def get_score
-
-                    return 1
-                end
-
-
             end
 
             @labels = Array.new
@@ -45,7 +39,8 @@ module OCCPGameServer
         
 
         def get_score(name)
-            
+            # Evaluate the score in a separate binding context
+            b = binding
             #Look up the formula for this scorename
             formula = nil
             finalScore = nil
@@ -66,23 +61,23 @@ module OCCPGameServer
                             
                             result = res[0][0] # Row 0 Column 0
                             if result
-                                formula = formula.gsub(e[:name], result.to_s)
+                                b.local_variable_set(e[:name], result)
                             elsif
-                                formula = formula.gsub(e[:name], 0.to_s)
+                                b.local_variable_set(e[:name],0.0)
                             end
                         end
                     }
                 }
 
                 begin
-                    score = eval(formula).to_f
+                    score = eval( formula , b ).to_f
                     if !score.nan?
                         finalScore = score
                     else
                         finalScore = 0.0
                     end
-                rescue Exception => e
-                    $log.warn "Score #{name} formula is invalid"
+                rescue ZeroDivisionError => e
+                    $log.warn "Score #{name} formula is invalid #{e.message}".yellow
                 end
             
             else

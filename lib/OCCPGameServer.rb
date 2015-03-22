@@ -296,10 +296,23 @@ module OCCPGameServer
             scoreKeeper.labels.push( tempT )
         }
         scoreblock = doc.find('/occpchallenge/scenario/score-names').first
-        scoreblock.each_element { |name|
-            $log.debug "Parsing Score Name: " + name.attributes["name"]
-            tempT = scoreKeeper.ScoreName.new(name.attributes["name"], name.attributes["formula"], name.attributes["descr"])
+        scoreblock.each_element { |scorename|
+            $log.debug "Parsing Score Name: " + scorename["name"]
+            name = scorename["name"]
+            formula = scorename["formula"]
+            descr = scorename["descr"]
+            # Integrity check
+            tempT = scoreKeeper.ScoreName.new(name,formula,descr)
             scoreKeeper.names.push( tempT )
+            begin
+                raise ParsingError, "missing attributes in score-name definition" if formula.nil? or name.nil? or descr.nil?
+                scoreKeeper.get_score(name)
+            rescue ParsingError => e
+                msg = "Error found in file #{instancefile}: #{scorename.line_num.to_s} - #{e.message}".red
+                puts msg
+                $log.fatal msg
+                exit(1)
+            end
         }
 
         
