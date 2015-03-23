@@ -177,13 +177,15 @@ class Team #Really the TeamScheduler
                         postClock = $appCore.gameclock.gametime
                         periodActualSleep = postClock - preClock
                         
-                        $log.debug "periodSleepCycle: #{periodSleepCycle} periodActualSleep: #{periodActualSleep}"
+                        #$log.debug "gametime: #{postClock.round(4)} periodSleepCycle: #{periodSleepCycle} periodActualSleep: #{periodActualSleep.round(4)}"
                         periodSleepCycle -= periodActualSleep
                         if periodSleepCycle > 0.0
                             next # We have been interupted so check STATE
-                        end
+                        elsif evOne.endtime < postClock
+                            break #if we over slept stop running
+                        end 
 
-                        $log.debug("Woke up #{evOne.name} #{evOne.eventuid}")
+                        #$log.debug("Woke up #{evOne.name} #{evOne.eventuid}")
                     end
                     $log.debug "Starting next launch"
                     runOnce = true
@@ -200,7 +202,7 @@ class Team #Really the TeamScheduler
                         # IE get a network namespace for this execution for the given IP address
                         if evOne.ipaddress != nil
                             ipPool = $appCore.get_ip_pool(evOne.ipaddress)
-                            if ipPool[:ifname] != nil 
+                            if !ipPool.nil? and ipPool[:ifname] != nil 
                                 ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
                                 netInfo = {:iface => ipPool[:ifname], :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
                                 begin
@@ -249,7 +251,7 @@ class Team #Really the TeamScheduler
                                                       :starttime => launchAt, :endtime => finishAt })
                             $appCore.INBOX << GMessage.new({:fromid=>'Team', :signal=>'EVENTLOG', :msg=>msgHash })
 
-                        rescue Error => e
+                        rescue Exception => e
 
                             $log.warn "Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} error: #{e.message}"
 
