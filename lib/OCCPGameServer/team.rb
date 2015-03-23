@@ -183,13 +183,6 @@ class Team #Really the TeamScheduler
                             next # We have been interupted so check STATE
                         end
 
-                  #      #Check if last sleep cycle was interupted and continue it if needed
-                  #      if sleepFor > 0
-                  #          preClock = $appCore.gameclock.gametime
-                  #          sleep(sleepFor)
-                  #          postClock = $appCore.gameclock.gametime
-                  #          sleepFor = sleepFor - (postClock - preClock)
-                  #      end
                         $log.debug("Woke up #{evOne.name} #{evOne.eventuid}")
                     end
                     $log.debug "Starting next launch"
@@ -205,22 +198,30 @@ class Team #Really the TeamScheduler
                         
                         # setup the execution space
                         # IE get a network namespace for this execution for the given IP address
-                        if event.ipaddress != nil
-                            ipPool = app_core.get_ip_pool(event.ipaddress)
+                        if evOne.ipaddress != nil
+                            ipPool = $appCore.get_ip_pool(evOne.ipaddress)
                             if ipPool[:ifname] != nil 
                                 ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
                                 netInfo = {:iface => ipPool[:ifname], :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
                                 begin
-                                    netNS = app_core.get_netns(netInfo) 
+                                    netNS = $appCore.get_netns(netInfo) 
                                 rescue ArgumentError => e
-                                    msg = "unable to create network namespace for event #{e}; aborting execution"
+                                    msg = "unable to create network namespace for event #{evOne.name}; aborting execution"
                                     print msg.red
                                     $log.error msg.red
-                                    return
+                                    break
                                 end
-                                # Prep the events command
-                                nsCommand = netNS.comwrap(event.command)
+                                
+                                # Change to the correct network namespace if provided
+                                fd = IO.sysopen('/var/run/netns/' + netNS.nsName, 'r')
+                                success = $setns.call(fd, 0)
+                                IO.new(fd, 'r').close
+
+                            else
+                                $log.debug "WARNING unable to run #{evOne.name} with invalid pool definition; aborting execution".light_yellow
                             end
+                        else
+                            $log.debug "WARNING event #{evOne.name} does not specify an ip address pool to send from".light_yellow
                         end
                         
                         launchAt = $appCore.gameclock.gametime
@@ -252,6 +253,11 @@ class Team #Really the TeamScheduler
 
                             $log.warn "Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} error: #{e.message}"
 
+                        end
+                        
+                        # Release the namespace
+                        if !netNS.nil?
+                            $appCore.release_netns(netNS.nsName)
                         end
 
                     end
