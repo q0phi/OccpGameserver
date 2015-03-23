@@ -139,7 +139,7 @@ class Team #Really the TeamScheduler
                     if @STATE === WAIT
                         Thread.stop
                         #When we wakeup restart the sleep-loop
-                        #next
+                        next
                     elsif @STATE === STOP
                         break
                     end
@@ -202,6 +202,26 @@ class Team #Really the TeamScheduler
 
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
+                        
+                        # setup the execution space
+                        # IE get a network namespace for this execution for the given IP address
+                        if event.ipaddress != nil
+                            ipPool = app_core.get_ip_pool(event.ipaddress)
+                            if ipPool[:ifname] != nil 
+                                ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
+                                netInfo = {:iface => ipPool[:ifname], :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
+                                begin
+                                    netNS = app_core.get_netns(netInfo) 
+                                rescue ArgumentError => e
+                                    msg = "unable to create network namespace for event #{e}; aborting execution"
+                                    print msg.red
+                                    $log.error msg.red
+                                    return
+                                end
+                                # Prep the events command
+                                nsCommand = netNS.comwrap(event.command)
+                            end
+                        end
                         
                         launchAt = $appCore.gameclock.gametime
                         thisloop = loops
