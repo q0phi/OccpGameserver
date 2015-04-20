@@ -88,7 +88,47 @@ class Team #Really the TeamScheduler
 
     end
 
+    ##
+    # Jump the current process to a new namespace
+    #
+    def namespace_jump(evOne)
 
+        netNS = nil
+        # Setup the execution space
+        # IE get a network namespace for this execution for the given IP address
+        if evOne.ipaddress != nil
+            ipPool = $appCore.get_ip_pool(evOne.ipaddress)
+            if !ipPool.nil? and ipPool[:ifname] != nil 
+                ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
+                netInfo = {:iface => ipPool[:ifname], :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
+                begin
+                    netNS = $appCore.get_netns(netInfo) 
+                rescue ArgumentError => e
+                    msg = "unable to create network namespace for event #{evOne.name} - #{e.msg}; aborting execution"
+                    print msg.red
+                    $log.error msg.red
+                    return nil
+                end
+                
+                # Change to the correct network namespace if provided
+                fd = IO.sysopen('/var/run/netns/' + netNS.nsName, 'r')
+                $setns.call(fd, 0)
+                IO.new(fd, 'r').close
+
+            else
+                $log.debug "WARNING unable to run #{evOne.name} with invalid pool definition; aborting execution".light_yellow
+            end
+        else
+            $log.debug "WARNING event #{evOne.name} does not specify an ip address pool to send from".light_yellow
+        end
+
+        return netNS
+    end
+
+
+    ##
+    # Main run loop for the a team
+    #
     def run(app_core)
         
         from = @teamname
@@ -197,35 +237,10 @@ class Team #Really the TeamScheduler
 
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
-                        
-                        # setup the execution space
-                        # IE get a network namespace for this execution for the given IP address
-                        if evOne.ipaddress != nil
-                            ipPool = $appCore.get_ip_pool(evOne.ipaddress)
-                            if !ipPool.nil? and ipPool[:ifname] != nil 
-                                ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
-                                netInfo = {:iface => ipPool[:ifname], :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
-                                begin
-                                    netNS = $appCore.get_netns(netInfo) 
-                                rescue ArgumentError => e
-                                    msg = "unable to create network namespace for event #{evOne.name}; aborting execution"
-                                    print msg.red
-                                    $log.error msg.red
-                                    break
-                                end
-                                
-                                # Change to the correct network namespace if provided
-                                fd = IO.sysopen('/var/run/netns/' + netNS.nsName, 'r')
-                                success = $setns.call(fd, 0)
-                                IO.new(fd, 'r').close
+                
+                        #TODO if nil is returned we may want to abort execution?
+                        netNS = namespace_jump(evOne)
 
-                            else
-                                $log.debug "WARNING unable to run #{evOne.name} with invalid pool definition; aborting execution".light_yellow
-                            end
-                        else
-                            $log.debug "WARNING event #{evOne.name} does not specify an ip address pool to send from".light_yellow
-                        end
-                        
                         launchAt = $appCore.gameclock.gametime
                         thisloop = loops
                         $log.debug("Launching Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)} for the #{thisloop} time")
@@ -311,8 +326,8 @@ class Team #Really the TeamScheduler
                     sleeptime = 0
                     clock = $appCore.gameclock.gametime
                     if currentEvent.starttime > clock
-                        sleeptime = currentEvent.starttime - clock
-                        sleep sleeptime
+                        sleeptime = currentEvent.starttime - clock  # TODO This section needs to be rethought if we are 
+                        sleep sleeptime                             # going to support adding events into this list dynamically
                     end  
                     
                     #If interupted from sleep in order to pause, stop quickly
