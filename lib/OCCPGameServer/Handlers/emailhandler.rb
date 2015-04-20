@@ -115,7 +115,6 @@ class EmailHandler < Handler
 
         Log4r::NDC.pop
         return {:status => status, :scores => returnScores, :handler => 'ExecHandler2', :custom=> event.command}
-
     end
 
 end #end class

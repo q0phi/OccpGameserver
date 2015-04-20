@@ -20,6 +20,7 @@ require 'netaddr'
 require 'net/smtp'
 require 'net/scp'
 require 'mysql2'
+require 'erb'
 
 require "OCCPGameServer/version"
 require "OCCPGameServer/constants"
