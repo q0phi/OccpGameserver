@@ -104,7 +104,7 @@ class Team #Really the TeamScheduler
                 begin
                     netNS = $appCore.get_netns(netInfo) 
                 rescue ArgumentError => e
-                    msg = "unable to create network namespace for event #{evOne.name} - #{e.msg}; aborting execution"
+                    msg = "unable to create network namespace for event #{evOne.name} - #{e.message}; aborting execution"
                     print msg.red
                     $log.error msg.red
                     return nil
@@ -340,36 +340,64 @@ class Team #Really the TeamScheduler
                     end
                    
                     evOne = currentEvent.clone
-                    
+                    if evOne.nil?
+                        $log.error("Popped an invalid singleton event from the list".red)
+                        next
+                    end
+
                     eventLocal = Thread.new do
                         
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
                        
                         launchAt = $appCore.gameclock.gametime
-
-                        if evOne.nil?
-                            $log.error("How did I get here at #{launchAt.to_s}".red)
-                            return
-                        end
-
                         $log.info("Launching Single Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)}")
                         
-                        # Get the handler from the app_core and launch the event
-                        event_handler = $appCore.get_handler(evOne.eventhandler)
-                        event_handler.run(evOne, app_core)
+                        #TODO if nil is returned we may want to abort execution?
+                        netNS = namespace_jump(evOne)
+                        
+                        begin
 
-                        #Update this events status
+                            # Get the handler from the app_core and launch the event
+                            event_handler = $appCore.get_handler(evOne.eventhandler)
+                            runResult = event_handler.run(evOne, app_core)
+
+                            finishAt = $appCore.gameclock.gametime
+                        
+                            msgtext = 'SINGLETON '.green + "#{evOne.name.to_s.light_magenta} #{evOne.eventuid.to_s.light_magenta}" + 
+                                        " at #{launchAt.round(4).to_s.yellow} end #{finishAt.round(4).to_s.green}" 
+                            $log.debug msgtext
+                            
+                            # Process Scoring Data
+                            runResult[:scores].each {|score|
+                                score.merge!({:eventuid => evOne.eventuid, :eventid => evOne.eventid, 
+                                                :gametime => finishAt })
+                                app_core.INBOX << GMessage.new({:fromid=>'Team',:signal=>'SCORE', :msg=>score})
+                            }
+                            
+                            # Process the EventLog data
+                            msgHash = runResult.merge({:eventname => evOne.name, :eventid=> evOne.eventid, :eventuid=> evOne.eventuid, 
+                                                      :starttime => launchAt, :endtime => finishAt })
+                            $appCore.INBOX << GMessage.new({:fromid=>'Team', :signal=>'EVENTLOG', :msg=>msgHash })
+
+                        rescue Exception => e
+
+                            $log.warn "Singleton Event: #{evOne.name} #{evOne.eventuid.light_magenta} error: #{e.message}"
+
+                        end
+                        
+                        # Release the namespace
+                        if !netNS.nil?
+                            $appCore.release_netns(netNS.nsName)
+                        end
+                        
+                        # Update this events run status in the master event list
                         @singletonList.each do |event|
                             if event.eventuid == evOne.eventuid
                                 event.setrunstate(true)
                                 break
                             end
                         end
-
-                        msgtext = 'SINGLETON '.green + "#{evOne.name.to_s.light_magenta} #{evOne.eventuid.to_s.light_magenta} at #{launchAt.round(4).to_s.yellow} end #{$appCore.gameclock.gametime.round(4).to_s.green}"
-                        
-                        $log.debug msgtext
 
                     end
 
