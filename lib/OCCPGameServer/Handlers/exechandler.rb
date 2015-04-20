@@ -60,28 +60,6 @@ class ExecHandler < Handler
         Log4r::NDC.push('ExecHandler:')
         
         nsCommand = event.command
-            # setup the execution space
-            # IE get a network namespace for this execution for the given IP address
-        if event.ipaddress != nil
-            ipPool = app_core.get_ip_pool(event.ipaddress)
-            if ipPool[:ifname] != nil 
-                ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
-                netInfo = {:iface => ipPool[:ifname], :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
-                begin
-                    netNS = app_core.get_netns(netInfo) 
-                rescue ArgumentError => e
-                    msg = "unable to create network namespace for event #{e}; aborting execution"
-                    print msg.red
-                    $log.error msg.red
-                    return
-                end
-                # Prep the events command
-                nsCommand = netNS.comwrap(event.command)
-            end
-        end
-
-
-        gameTimeStart = $appCore.gameclock.gametime
 
         #TODO Optimize command specialization to arrays
         begin
@@ -89,50 +67,45 @@ class ExecHandler < Handler
             success = system(nsCommand, [:out, :err]=>'/dev/null')
         
         rescue Exception => e
-            app_core.release_netns(netNS.nsName)
             msg = "Event failed to run: #{e.message}".red
             $log.warn msg
         end
         
-        gameTimeEnd = $appCore.gameclock.gametime
-        app_core.release_netns(netNS.nsName)
-        
-        #Log message that the event ran
-        msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventid => event.eventid, :eventuid => event.eventuid, :custom => event.command,
-                    :starttime => gameTimeStart, :endtime => gameTimeEnd }
-        
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
         
+        returnScores = Array.new 
+        status = UNKNOWN
         if( success === true )
 
             $log.info "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS".green
-            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
             
             #Score Database
             event.scores.each {|score|
                 if score[:succeed]
-                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
+                    returnScores << score
                 end
             }
 
+            status = SUCCESS
         elsif( success === nil )
                 msg = "Command failed to run: #{event.command}"
                 $log.error(msg)
 
+            status = UNKNOWN
         else
             $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "FAILED".light_red
-            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
             
             #Score Database
             event.scores.each {|score|
                 if !score[:succeed]
-                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
+                    returnScores << score
                 end
             }
+            status = FAILURE
         end
 
         Log4r::NDC.pop
-
+        return {:status => status, :scores => returnScores, :handler => 'ExecHandler2', :custom=> event.command}
     end
 
 end #end class
