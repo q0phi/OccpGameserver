@@ -104,7 +104,7 @@ class ExecHandler < Handler
         end
 
         Log4r::NDC.pop
-        return {:status => status, :scores => returnScores, :handler => 'ExecHandler2', :custom=> event.command}
+        return {:status => status, :scores => returnScores, :handler => 'ExecHandler', :custom=> event.command}
     end
 
 end #end class
