@@ -406,8 +406,8 @@ module OCCPGameServer
 
     # Output to the filepath given
     fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => $options[:logfile]})
-    fileoutputter.formatter = Log4r::PatternFormatter.new(:pattern => "[%l] %d %x %m")
-    
+    fileoutputter.formatter = Log4r::PatternFormatter.new({:pattern => "[%l] %d %x %m", :date_pattern => '%H:%M:%S'})
+   
     Log4r::NDC.push('OCCP GS:')
     
     $log.outputters = [fileoutputter]
