@@ -19,6 +19,7 @@ class Team #Really the TeamScheduler
         @STATE = WAIT
     
         @INBOX = Queue.new
+        @singleEventQueue = Queue.new
 
         @periodThreads = ThreadGroup.new
         @singletonThread = nil
@@ -298,6 +299,8 @@ class Team #Really the TeamScheduler
             
            
             $log.debug('Length of singleton list: ' + @singletonList.length.to_s)
+            $log.debug "Re-sorting singleton list"
+            @singletonList.sort!{|aEv,bEv| aEv.starttime <=> bEv.starttime }
 
             if @STATE === WAIT
                 Thread.stop
@@ -306,14 +309,10 @@ class Team #Really the TeamScheduler
             #Signal ready and wait for start signal
             while not @shuttingdown do
                 
-                $log.debug "Re-sorting singleton list"
-                @singletonList.sort!{|aEv,bEv| aEv.starttime <=> bEv.starttime }
-
                 # Search for the next single event to run
                 currentEvent = nil
                 @singletonList.each do |event|
-                    clock = $appCore.gameclock.gametime
-                    if event.starttime >= clock and not event.hasrun
+                    if !event.hasrun
                         currentEvent = event
                         break
                     end
@@ -339,17 +338,24 @@ class Team #Really the TeamScheduler
                         break
                     end
                    
-                    evOne = currentEvent.clone
-                    if evOne.nil?
-                        $log.error("Popped an invalid singleton event from the list".red)
-                        next
-                    end
+                    # After this point the event can be considered launched
+                    # This does not imply success or failure only that the scheduler
+                    # has launched an instance of the event
+                    currentEvent.setrunstate(true)
+                    @singleEventQueue << currentEvent
 
                     eventLocal = Thread.new do
                         
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
-                       
+
+                        begin
+                            evOne = @singleEventQueue.pop(true)
+                        rescue Exception => e
+                            $log.warn "Single event queue pop missfire".yellow
+                            return
+                        end
+
                         launchAt = $appCore.gameclock.gametime
                         $log.info("Launching Single Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)}")
                         
@@ -391,15 +397,7 @@ class Team #Really the TeamScheduler
                             $appCore.release_netns(netNS.nsName)
                         end
                         
-                        # Update this events run status in the master event list
-                        @singletonList.each do |event|
-                            if event.eventuid == evOne.eventuid
-                                event.setrunstate(true)
-                                break
-                            end
-                        end
-
-                    end
+                    end # end Thread
 
                     @eventGroupSingle.add(eventLocal)
 
