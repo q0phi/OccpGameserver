@@ -76,7 +76,6 @@ class ExecHandler < Handler
         returnScores = Array.new 
         status = UNKNOWN
         if( success === true )
-
             $log.info "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS".green
             
             #Score Database
@@ -88,8 +87,8 @@ class ExecHandler < Handler
 
             status = SUCCESS
         elsif( success === nil )
-                msg = "Command failed to run: #{event.command}"
-                $log.error(msg)
+            msg = "Command failed to run: #{event.command}"
+            $log.error(msg)
 
             status = UNKNOWN
         else
