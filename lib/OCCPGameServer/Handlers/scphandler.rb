@@ -59,8 +59,6 @@ class ScpHandler < Handler
             new_event.downloads << { source: download["remote"], dest: download["local"] }
         }
         
-
-        
         return new_event
     end
 
@@ -68,43 +66,14 @@ class ScpHandler < Handler
 
         Log4r::NDC.push('ScpHandler:')
         
-        # setup the execution space
-        # IE get a network namespace for this execution for the given IP address
-        if event.ipaddress != nil
-            ipPool = app_core.get_ip_pool(event.ipaddress)
-            if ipPool[:ifname] != nil 
-                ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
-                netInfo = {:iface => ipPool[:ifname], :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
-                begin
-                    netNS = app_core.get_netns(netInfo) 
-                rescue ArgumentError => e
-                    msg = "unable to create network namespace for event #{e}; aborting execution"
-                    print msg.red
-                    $log.error msg.red
-                    return
-                end
-            else
-                $log.warn "Unable to run #{event.name} with invalid pool definition; aborting execution".light_yellow
-                return
-            end
-        end
-
-
-        gameTimeStart = $appCore.gameclock.gametime
-
         begin
-            # Change to the correct network namespace
-            fd = IO.sysopen('/var/run/netns/' + netNS.nsName, 'r')
-            success = $setns.call(fd, 0)
-            
-            raise ArgumentError, 'could not change to correct namespace' if success != 0
-            success = nil
 
             failedMoves = {}
             successMoves = {}
             $log.debug "Beginning SCP session to remote server"
             #success = system(event.command, [:out, :err]=>'/dev/null')
-            Net::SCP.start(event.serverip, event.serveruser, {:password => event.serverpass, :number_of_password_prompts => 1, :timeout=>3}){ |scp|
+            Net::SCP.start(event.serverip, event.serveruser, {:password => event.serverpass, :number_of_password_prompts => 1,
+                                                                :paranoid => false, :timeout=>3}){ |scp|
                 event.uploads.each{ |uploadF|
                     begin
                         if File.file?(uploadF[:source])
@@ -137,49 +106,45 @@ class ScpHandler < Handler
             $log.warn msg
         end
         
-        gameTimeEnd = $appCore.gameclock.gametime
-        app_core.release_netns(netNS.nsName)
-        
-        #Log message that the event ran
-        msgHash = {:handler => 'ScpHandler', :eventname => event.name, :eventid => event.eventid, :eventuid => event.eventuid, :custom => event.command,
-                    :starttime => gameTimeStart, :endtime => gameTimeEnd }
         
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
-        
+        returnScores = Array.new
+        status = UNKNOWN
+
         if( success === true and failedMoves.length === 0)
 
             $log.info "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS".green
             successMoves.each{ |file, error| $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS ".green + file.to_s }
-            app_core.INBOX << GMessage.new({:fromid=>'ScpHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
-            
+
+            status = SUCCESS
             #Score Database
             event.scores.each {|score|
                 if score[:succeed]
-                    app_core.INBOX << GMessage.new({:fromid=>'ScpHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
+                    returnScores << score
                 end
             }
 
         elsif( success === nil )
-                msg = "Command failed to run: #{event.command}"
-                $log.error(msg)
+            msg = "Command failed to run: #{event.command}"
+            $log.error(msg)
+            status = UNKNOWN
 
         else
             $log.info "#{event.name} #{event.eventuid.light_magenta} " + "FAILED".light_red
             failedMoves.each{ |file, error| $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "FAILED ".light_red + file.to_s + "  " + error.to_s }
             successMoves.each{ |file, error| $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS ".green + file.to_s }
             
-            app_core.INBOX << GMessage.new({:fromid=>'ScpHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
-            
+            status = FAILURE
             #Score Database
             event.scores.each {|score|
                 if !score[:succeed]
-                    app_core.INBOX << GMessage.new({:fromid=>'ScpHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
+                    returnScores << score
                 end
             }
         end
 
         Log4r::NDC.pop
-
+        return {:status => status, :scores => returnScores, :handler => 'ScpHandler', :custom=> successMoves.merge(failedMoves).to_s}
     end
 
 end #end class
