@@ -40,7 +40,7 @@ class IPToolsTest < Minitest::Test
     def test_ns_create
 
         netAddr = {}
-        netAddr[:iface] = 'eth1'
+        netAddr[:iface] = 'eth0'
         netAddr[:ipaddr] = '1.2.3.6' #@listips[Random.rand(7)]
         netAddr[:cidr] = '24'
         netAddr[:gateway] = nil
@@ -59,7 +59,7 @@ class IPToolsTest < Minitest::Test
         Process.wait pid
         addrAssignCheck = $?.exitstatus
 
-        system(field1.comwrap('nping -c 1 1.2.3.4'), [:out, :err]=>"/dev/null")
+        system(field1.comwrap('ping -c 1 1.2.3.6'), [:out, :err]=>"/dev/null")
         pingret = $?.exitstatus
 
         collectedAddress = pR.read.delete!("\n")
@@ -104,7 +104,7 @@ class IPToolsBench < Minitest::Benchmark
                         '10.24.32.129']
 
             netAddr = {}
-            netAddr[:iface] = 'eth1'
+            netAddr[:iface] = 'eth0'
             netAddr[:ipaddr] = '1.2.3.6' #@listips[Random.rand(7)]
             netAddr[:cidr] = '24'
             netAddr[:gateway] = nil
