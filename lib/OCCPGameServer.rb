@@ -378,6 +378,10 @@ module OCCPGameServer
 
         end
 
+        opt.on("--[no-]dry-run", "Dry run of the instance file without specified success values") do |dryrun|
+            $options[:dryrun] = dryrun
+        end
+
         opt.separator ""
         opt.on_tail("-h","--help", "Show this help information") do
             puts opt

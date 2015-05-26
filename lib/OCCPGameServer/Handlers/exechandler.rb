@@ -72,7 +72,22 @@ class ExecHandler < Handler
         end
         
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
-        
+       
+        # Special handling for dry runs
+        if $options[:dryrun]
+            returnValue = event.attributes.find {|param| param.key?("dryrunstatus") }
+            if ( returnValue )        
+                case returnValue["dryrunstatus"]
+                when 'success'
+                    success = true
+                when 'fail'
+                    success = false
+                end
+            else
+                success = true
+            end
+        end
+ 
         returnScores = Array.new 
         status = UNKNOWN
         if( success === true )

@@ -84,11 +84,21 @@ class NagiosPluginHandler < Handler
             msg = "Event failed to run: #{e.message}".red
             $log.warn msg
         end
-
-        if $?.nil?
-            returnValue = 3
+        
+        # Special handling for dry runs
+        if $options[:dryrun]
+            returnValue = event.attributes.detect {|param| param.key?("dryrunstatus") }
+            if ( returnValue )        
+                returnValue = @@nagiosStatus.key(returnValue["dryrunstatus"])
+            else
+                returnValue = 0
+            end
         else
-            returnValue = $?.exitstatus
+            if $?.nil?
+                returnValue = 3
+            else
+                returnValue = $?.exitstatus
+            end
         end
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
         

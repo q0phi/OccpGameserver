@@ -106,11 +106,26 @@ class ScpHandler < Handler
             $log.warn msg
         end
         
-        
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
+        
+        if $options[:dryrun]
+            returnValue = event.attributes.find {|param| param.key?("dryrunstatus") }
+            if ( returnValue )        
+                case returnValue["dryrunstatus"]
+                when 'success'
+                    success = true
+                    failedMoves = {}
+                when 'fail'
+                    success = false
+                end
+            else
+                success = true
+                failedMoves = {}
+            end
+        end
+
         returnScores = Array.new
         status = UNKNOWN
-
         if( success === true and failedMoves.length === 0)
 
             $log.info "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS".green
