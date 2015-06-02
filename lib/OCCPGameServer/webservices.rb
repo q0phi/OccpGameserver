@@ -279,8 +279,8 @@ module OCCPGameServer
     @apiName GetTeamEvents
     @apiGroup Teams
 
-    @apiParam {Number} [&start_index=0] Optional Starting Index Entry
-    @apiParam {Number} [&max_results=20] Optional Maximum Results Per Page
+    @apiParam {Number} [start_index=0] Optional Starting Index Entry
+    @apiParam {Number} [max_results=20] Optional Maximum Results Per Page
 
     @apiSuccess {Number} numberOfResults Number of results found
     @apiSuccess {Number} startIndex Starting index of this page
@@ -438,22 +438,74 @@ module OCCPGameServer
             res
         end
 
+=begin
+    @api {get} /scores/ Read all available score names
+    @apiVersion 0.1.0
+    @apiName GetScores
+    @apiGroup Scores
 
+    @apiDescription Provides an array of all of the score names that the gameserver knows about.
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        [ 
+            "service-level",
+            "wage-level",
+            "empl-level"
+        ]
+
+    @apiError (Error 4xx) ScoresNotFound There are no score names defined in the system.
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "ScoresNotFound"
+        }
+=end
         get '/scores/' do
             score_names = $appCore.scoreKeeper.get_names
+            if score_names.nil? || score_names.empty?
+                res = [404, {:error=>"TeamNotFound"}.to_json]
+            end
             res = JSON.generate(score_names)
             res
         end
+
+=begin
+    @api {get} /scores/<scorename>/ Read a specified score name's information
+    @apiVersion 0.1.0
+    @apiName GetScoreInformation
+    @apiGroup Scores
+
+    @apiDescription Provides the current value of a defined score name.
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        { 
+            name: "service-level",
+            value: "0.0"
+        }
+
+    @apiError (Error 4xx) ScoreNameNotFound There are no score names defined with the supplied name.
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "ScoreNameNotFound"
+        }
+=end
+
         get '/scores/:name/' do
-               output = '' 
+               output = {} 
             $appCore.scoreKeeper.get_names.each do |scorename|
                 if scorename == params[:name]
                     value = $appCore.scoreKeeper.get_score(scorename)
-                    output = { scorename => value }
+                    output = { :name => scorename, :value => value }
                 end
             end
-            res = JSON.generate(output)
-            
+            if output.empty?
+                res = [404, {:error=>"ScoreNameNotFound"}.to_json]
+            else
+                res = JSON.generate(output)
+            end
             res
         end
 
