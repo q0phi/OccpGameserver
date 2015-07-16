@@ -129,7 +129,7 @@ module OCCPGameServer
         HTTP/1.1 200 OK
         {
             "length" : 300,
-            "state" : 4
+            "state" : 'Running'
         }
     @apiError (Error 400) invalidInputError The data for the request was not correct JSON
     @apiErrorExample Error-Response (example):
