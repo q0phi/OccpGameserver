@@ -27,6 +27,10 @@ module OCCPGameServer
             STOP => 'STOP',
             QUIT => 'QUIT'
         }
+
+	before do
+		headers "Access-Control-Allow-Origin" => "*"
+	end
 =begin
     @api {get} / Request System Information
     @apiVersion 0.1.0
@@ -509,6 +513,131 @@ module OCCPGameServer
             res
         end
 
+
+
+=begin
+    @api {get} /logevents/ Read all log events from the database
+    @apiVersion 0.1.0
+    @apiName GetEventLogs
+    @apiGroup Log
+
+    @apiDescription Provides the current entries of log database. Not Currently Paginated.
+    
+    @apiSuccess {String} rowid Unique ID of log entry
+    @apiSuccess {Number} time Time that the log entry was created in UNIX Epoch seconds
+    @apiSuccess {Number} gametimestart Time on the gameclock when the event was initiated in seconds
+    @apiSuccess {Number} gametimeend  Time on the gameclock when the event was completed in seconds
+    @apiSuccess {String} handler Handler class for the event
+    @apiSuccess {String} eventname Name of the event
+    @apiSuccess {String} eventid Registry ID of event type
+    @apiSuccess {String} eventuid Unique ID of event isntance
+    @apiSuccess {String} custom Custom string supplied by the execution handler
+    @apiSuccess {String} status Event completion status as defined by the execution handler
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        [{
+            "rowid":12,
+            "time":1466545618,
+            "gametimestart":12.141730549,
+            "gametimeend":15.150756999000002,
+            "handler":"NagiosPluginHandler",
+            "eventname":"check homepage noise",
+            "eventid":"",
+            "eventuid":"1d9413a4-4f11-47a9-9261-26ebaa8391c1",
+            "custom":"/usr/lib/nagios/plugins/check_http -I 185.110.107.101",
+            "status":"FAIL"
+        }, ...
+        ]
+
+    @apiError (Error 4xx) NoLogEventsFound There are no log events stored in the database.
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "NoLogEventsFound"
+        }
+=end
+	get '/logevents/' do
+        
+        output = []      
+        res = $db.query('SELECT rowid,* FROM EVENTS')
+        cols = res.columns
+        if res
+            res.each do |row|
+                output << Hash[cols.zip(row)]
+            end
+        end
+            
+        if output.empty?
+            res = [404, {:error=>"NoLogEventsFound"}.to_json]
+        else
+            res = JSON.generate(output)
+        end
+
+        res
+	end
+	
+=begin
+    @api {get} /logevents/since/<rowid>/ Read all log events from the database that occur after the provided entry id.
+    @apiVersion 0.1.0
+    @apiName GetEventLogsSince
+    @apiGroup Log
+    
+    @apiSuccess {String} rowid Unique ID of log entry
+    @apiSuccess {Number} time Time that the log entry was created in UNIX Epoch seconds
+    @apiSuccess {Number} gametimestart Time on the gameclock when the event was initiated in seconds
+    @apiSuccess {Number} gametimeend  Time on the gameclock when the event was completed in seconds
+    @apiSuccess {String} handler Handler class for the event
+    @apiSuccess {String} eventname Name of the event
+    @apiSuccess {String} eventid Registry ID of event type
+    @apiSuccess {String} eventuid Unique ID of event isntance
+    @apiSuccess {String} custom Custom string supplied by the execution handler
+    @apiSuccess {String} status Event completion status as defined by the execution handler
+
+    @apiDescription Provides the current entries of log database that occur after the supplied entry id. Not Currently Paginated.
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        [{
+            "rowid":12,
+            "time":1466545618,
+            "gametimestart":12.141730549,
+            "gametimeend":15.150756999000002,
+            "handler":"NagiosPluginHandler",
+            "eventname":"check homepage noise",
+            "eventid":"",
+            "eventuid":"1d9413a4-4f11-47a9-9261-26ebaa8391c1",
+            "custom":"/usr/lib/nagios/plugins/check_http -I 185.110.107.101",
+            "status":"FAIL"
+        }, ...
+        ]
+
+    @apiError (Error 4xx) NoLogEventsFound There are no log events newer than the supplied log entry id.
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "NoLogEventsFound"
+        }
+=end
+    get '/logevents/since/:rowid/' do
+        
+        output = []      
+        res = $db.query('SELECT rowid,* FROM EVENTS WHERE rowid > ?', params[:rowid])
+        cols = res.columns
+        if res
+            res.each do |row|
+                output << Hash[cols.zip(row)]
+            end
+        end
+            
+        if output.empty?
+            res = [404, {:error=>"NoLogEventsFound"}.to_json]
+        else
+            res = JSON.generate(output)
+        end
+
+        res
+	end
 
 
 

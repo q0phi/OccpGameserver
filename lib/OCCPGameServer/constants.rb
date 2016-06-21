@@ -12,8 +12,8 @@ module OCCPGameServer
     #
     # Event Status Return Codes
     #
-    SUCCESS = 1
-    FAILURE = 2
-    UNKNOWN = 3
+    SUCCESS = 'SUCCEED'
+    FAILURE = 'FAIL'
+    UNKNOWN = 'UNKNOWN'
 
 end
