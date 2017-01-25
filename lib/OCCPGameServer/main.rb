@@ -4,7 +4,7 @@ module OCCPGameServer
 
         attr_accessor :gameclock, :networkid, :scenarioname, :INBOX, :eventRunQueue
         attr_accessor :STATE, :db, :scoreKeeper, :interfaces, :ipPools
-        attr_accessor :gameid, :type, :description
+        attr_accessor :gameid, :type, :description, :scenariouid
         attr_reader :teams, :begintime, :endtime
 
         def initialize

@@ -73,6 +73,7 @@ module OCCPGameServer
         {
             "name" : "Red Team v. Blue Team",
             "id" : "1",
+            "uid": "d8febc5-ad4fr5-3ff4f-434cec"
             "type" : "Network Defense",
             "length" : "300",
             "description" : "A two sentence description of the scenario."
@@ -85,7 +86,8 @@ module OCCPGameServer
                         :id => $appCore.gameid,
                         :type => $appCore.type,
                         :length => $appCore.gameclock.gamelength,
-                        :description => $appCore.description
+                        :description => $appCore.description,
+                        :uid => $appCore.scenariouid
             }
             JSON.generate(info)
         end
