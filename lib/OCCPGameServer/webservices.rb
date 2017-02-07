@@ -475,10 +475,10 @@ module OCCPGameServer
 
     @apiDescription Provides an array of all of the scores that the gameserver knows about.
 
-    @apiSucess {String} name Name of the score
-    @apiSucess {String} value Value of the score
-    @apiSucess {String} longname Pretty Print version of the score name
-    @apiSucess {String} description An optional description of what the score ranks
+    @apiSuccess {String} name Name of the score
+    @apiSuccess {String} value Value of the score
+    @apiSuccess {String} longname Pretty Print version of the score name
+    @apiSuccess {String} description An optional description of what the score ranks
 
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
