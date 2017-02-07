@@ -73,6 +73,30 @@ module OCCPGameServer
         {
             "name" : "Red Team v. Blue Team",
             "id" : "1",
+            "type" : "Network Defense",
+            "length" : "300",
+            "description" : "A two sentence description of the scenario."
+        }
+     
+=end
+=begin
+    @api {get} /scenario/ Request Scenario Information
+    @apiVersion 0.2.0
+    @apiName GetScenario
+    @apiGroup Scenario
+
+    @apiSuccess {String} name Name of the scenario
+    @apiSuccess {String} id ID of the scenario
+    @apiSuccess {String} uid A unique identifier for each run of the scenario (changes each game server restart)
+    @apiSuccess {String} type Type of the scenario
+    @apiSuccess {Number} length Length of the scenario in seconds
+    @apiSuccess {String} description Short description of the activity of the scenario
+    
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        {
+            "name" : "Red Team v. Blue Team",
+            "id" : "1",
             "uid": "d8febc5-ad4fr5-3ff4f-434cec"
             "type" : "Network Defense",
             "length" : "300",
@@ -475,10 +499,10 @@ module OCCPGameServer
 
     @apiDescription Provides an array of all of the scores that the gameserver knows about.
 
-    @apiSucess {String} name Name of the score
-    @apiSucess {String} value Value of the score
-    @apiSucess {String} longname Pretty Print version of the score name
-    @apiSucess {String} description An optional description of what the score ranks
+    @apiSuccess {String} name Name of the score
+    @apiSuccess {String} value Value of the score
+    @apiSuccess {String} longname Pretty Print version of the score name
+    @apiSuccess {String} description An optional description of what the score ranks
 
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
