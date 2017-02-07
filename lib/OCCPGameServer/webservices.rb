@@ -511,7 +511,7 @@ module OCCPGameServer
                 name: "service-level",
                 value: "0.0",
                 longname: "Service Level"
-                description: "This score show holong the service stayed alive."
+                description: "This score shows how long the service stayed alive."
             },
               ...
         ]
