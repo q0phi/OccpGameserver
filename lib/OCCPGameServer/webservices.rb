@@ -467,12 +467,53 @@ module OCCPGameServer
             "error" : "ScoresNotFound"
         }
 =end
+=begin
+    @api {get} /scores/ Read all available scores
+    @apiVersion 0.2.0
+    @apiName GetScores
+    @apiGroup Scores
+
+    @apiDescription Provides an array of all of the scores that the gameserver knows about.
+
+    @apiSucess {String} name Name of the score
+    @apiSucess {String} value Value of the score
+    @apiSucess {String} longname Pretty Print version of the score name
+    @apiSucess {String} description An optional description of what the score ranks
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        [ 
+            { 
+                name: "service-level",
+                value: "0.0",
+                longname: "Service Level"
+                description: "This score show holong the service stayed alive."
+            },
+              ...
+        ]
+
+    @apiError (Error 4xx) ScoresNotFound There are no score names defined in the system.
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "ScoresNotFound"
+        }
+=end
         get '/scores/' do
-            score_names = $appCore.scoreKeeper.get_names
-            if score_names.nil? || score_names.empty?
-                res = [404, {:error=>"TeamNotFound"}.to_json]
+            score_names = $appCore.scoreKeeper.get_scores
+            output = [] 
+            
+            score_names.each do |scorename|
+                value = $appCore.scoreKeeper.get_score(scorename.name)
+                output.push( { :name => scorename.name, :longname => scorename.lname, :value => value, :description => scorename.descr })
             end
-            res = JSON.generate(score_names)
+            
+            
+            if output.nil? || output.empty?
+                res = [404, {:error=>"ScoresNotFound"}.to_json]
+            end
+
+            res = JSON.generate(output)
             res
         end
 

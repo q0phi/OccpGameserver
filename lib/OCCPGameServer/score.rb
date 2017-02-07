@@ -22,7 +22,7 @@ module OCCPGameServer
                 end
             end
 
-            @ScoreName = Struct.new(:name, :formula, :descr) do
+            @ScoreName = Struct.new(:name, :lname, :formula, :descr) do
             end
 
             @labels = Array.new
@@ -35,6 +35,9 @@ module OCCPGameServer
         end
         def get_names
             @names.map{|name| name.name}
+        end
+        def get_scores
+            @names
         end
         
 

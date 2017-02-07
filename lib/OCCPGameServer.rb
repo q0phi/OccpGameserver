@@ -300,10 +300,11 @@ module OCCPGameServer
         scoreblock.each_element { |scorename|
             $log.debug "Parsing Score Name: " + scorename["name"]
             name = scorename["name"]
+            lname = scorename["longname"]
             formula = scorename["formula"]
             descr = scorename["descr"]
             # Integrity check
-            tempT = scoreKeeper.ScoreName.new(name,formula,descr)
+            tempT = scoreKeeper.ScoreName.new(name,lname,formula,descr)
             scoreKeeper.names.push( tempT )
             begin
                 raise ParsingError, "missing attributes in score-name definition" if formula.nil? or name.nil? or descr.nil?
