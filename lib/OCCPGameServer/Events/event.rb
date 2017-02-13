@@ -5,13 +5,14 @@ module OCCPGameServer
         attr_accessor :eventuid, :starttime, :endtime, :drift
         attr_accessor :scores, :attributes, :rollover, :frequency
         attr_accessor :network, :ipaddress
-        attr_reader :hasrun
+        attr_reader :hasrun, :deleted
 
         def initialize(eh)
             @scores = Array.new
             @attributes = Array.new
 
             @frequency = 0 
+            @deleted = false
 
             @eventhandler = eh[:handler]
             @eventuid = eh[:eventuid]
@@ -65,6 +66,7 @@ module OCCPGameServer
                 :frequency=>@frequency,
                 :drift=>@drift,
                 :ipaddresspool=>@ipaddress,
+                :deleted=>@deleted,
                 :scores=>[]
             }
 
@@ -73,6 +75,17 @@ module OCCPGameServer
             }
 
             event
+        end
+
+        def setdeleted( )
+            @mutex.synchronize do
+                @deleted = true
+            end
+        end
+        def setundeleted( )
+            @mutex.synchronize do
+                @deleted = false
+            end
         end
 
     end

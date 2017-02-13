@@ -745,7 +745,7 @@ module OCCPGameServer
                 {
                     "uuid" : "123456-1234-123456",
                     "guid" : "q-w-e",
-                    "teamid" : "123456-1234-123456"
+                    "teamid" : "123456-1234-123456",
                     "name" : "ping",
                     "handler" : "exec-handler-1",
                     "starttime" : "00:00:00",
@@ -794,7 +794,7 @@ module OCCPGameServer
         end
 
 =begin
-    @api {get} /events/<eventid>/ Read event given by uuid
+    @api {get} /events/<eventid>/ Read event by uuid
     @apiVersion 0.2.0
     @apiName GetEvent
     @apiGroup Events
@@ -820,7 +820,7 @@ module OCCPGameServer
        {
             "uuid" : "123456-1234-123456",
             "guid" : "q-w-e",
-            "teamid" : "123456-1234-123456"
+            "teamid" : "123456-1234-123456",
             "name" : "ping",
             "handler" : "exec-handler-1",
             "starttime" : "00:00:00",
@@ -873,6 +873,90 @@ module OCCPGameServer
             res
         end
 
+=begin
+    @api {delete} /events/<eventid>/ Delete event by uuid
+    @apiVersion 0.2.0
+    @apiName DeleteEvent
+    @apiGroup Events
+
+    @apiSuccess {String} uuid Unique ID of event isntance
+    @apiSuccess {String} guid Registry ID of event type
+    @apiSuccess {String} teamid Unique ID of the parent team
+    @apiSuccess {String} name Name of the event
+    @apiSuccess {String} handler Handler class for the event
+    @apiSuccess {String} starttime '''GameTime''' start time for the event
+    @apiSuccess {String} endtime '''GameTime''' end time for the event
+    @apiSuccess {Number} frequency The number of seconds to elapse between successive events
+    @apiSuccess {Number} drift The number of seconds (+/-)to drift from the expected execution time
+    @apiSuccess {String} ipaddresspool IP address assignment pool
+    @apiSuccess {Boolean} deleted Deletion status of the event
+    @apiSuccess {Object[]} scores Score items associated with this event
+    @apiSuccess {String} scores.scoregroup Score group label for this score
+    @apiSuccess {String} scores.points Number of points to assign for this score
+    @apiSuccess {Boolean} scores.onsuccess Whether to assign points when event succeeds or fails
+
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+       {
+            "uuid" : "123456-1234-123456",
+            "guid" : "q-w-e",
+            "teamid" : "123456-1234-123456",
+            "name" : "ping",
+            "handler" : "exec-handler-1",
+            "starttime" : "00:00:00",
+            "endtime" : "00:00:00",
+            "frequency" : "2",
+            "drift" : "0",
+            "ipaddresspool" : "pub_1",
+            "deleted" : true,
+            "scores" : [    
+                { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
+                { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
+                ]
+        }
+
+    @apiError (Error 4xx) EventNotFound No event for this uuid
+    @apiError (Error 5xx) EventNotDeleted Could not delete event
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "EventNotFound"|"EventNotDeleted"
+        }
+=end
+        delete '/events/:eventuid/' do
+            teaminfo = nil
+            eventRecord = nil
+            $appCore.teams.each do |team|
+                #Iterate through each list of events of the team
+                team.singletonList.each do |event|
+                    if event.eventuid == params[:eventuid]
+                        event.setdeleted()
+                        eventhash = event.wshash
+                        eventhash[:teamid] = team.teamid
+                        eventRecord = eventhash
+                        break
+                    end
+                end
+                if eventRecord.nil?
+                    team.periodicList.each do |event|
+                        if event.eventuid == params[:eventuid]
+                            event.setdeleted()
+                            eventhash = event.wshash
+                            eventhash[:teamid] = team.teamid
+                            eventRecord = eventhash
+                            break
+                        end
+                    end
+                end
+            end
+            if eventRecord.nil?
+                res = [404, {:error=>"EventNotFound"}.to_json]
+            else
+                res = JSON.generate(eventRecord)
+            end
+            res
+        end
 
     end #End Class
 
