@@ -954,7 +954,119 @@ module OCCPGameServer
                 res = [404, {:error=>"EventNotFound"}.to_json]
             else
                 res = JSON.generate(eventRecord)
+                $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'LOG',:msg=>"Event Marked Deleted: #{eventRecord[:uuid]}"})
             end
+            
+            res
+        end
+
+=begin
+    @api {put} /events/<eventid>/ Update event by uuid
+    @apiVersion 0.2.0
+    @apiName PutEvent
+    @apiGroup Events
+
+    @apiParam {String} uuid Unique ID of event isntance
+    @apiParam {String} guid Registry ID of event type
+    @apiParam {String} teamid Unique ID of the parent team
+    @apiParam {String} name Name of the event
+    @apiParam {String} handler Handler class for the event
+    @apiParam {String} starttime '''GameTime''' start time for the event
+    @apiParam {String} endtime '''GameTime''' end time for the event
+    @apiParam {Number} frequency The number of seconds to elapse between successive events
+    @apiParam {Number} drift The number of seconds (+/-)to drift from the expected execution time
+    @apiParam {String} ipaddresspool IP address assignment pool
+    @apiParam {Boolean} deleted Deletion status of the event
+    @apiParam {Object[]} scores Score items associated with this event
+    @apiParam {String} scores.scoregroup Score group label for this score
+    @apiParam {String} scores.points Number of points to assign for this score
+    @apiParam {Boolean} scores.onsuccess Whether to assign points when event succeeds or fails
+
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+       {
+            "uuid" : "123456-1234-123456",
+            "guid" : "q-w-e",
+            "teamid" : "123456-1234-123456",
+            "name" : "ping",
+            "handler" : "exec-handler-1",
+            "starttime" : "00:00:00",
+            "endtime" : "00:00:00",
+            "frequency" : "2",
+            "drift" : "0",
+            "ipaddresspool" : "pub_1",
+            "deleted" : true,
+            "scores" : [    
+                { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
+                { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
+                ]
+        }
+
+    @apiError (Error 4xx) EventNotFound No event for this uuid
+    @apiError (Error 5xx) EventNotDeleted Could not delete event
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "EventNotFound"|"EventNotDeleted"
+        }
+=end
+        put '/events/:eventuid/' do
+
+            request.body.rewind
+            eventRecord = nil
+            eventObj = nil
+            teamParent = nil
+            
+            begin
+                data = JSON.parse request.body.read
+                
+                
+                $appCore.teams.each do |team|
+                    teamParent = team
+                    #Iterate through each list of events of the team
+                    team.singletonList.each do |event|
+                        if event.eventuid == params[:eventuid]
+                            eventObj = event
+                            break
+                        end
+                    end
+                    if eventRecord.nil?
+                        team.periodicList.each do |event|
+                            if event.eventuid == params[:eventuid]
+                                eventObj = event
+                                break
+                            end
+                        end
+                    end
+                end
+
+                if eventObj.nil? 
+                    res = [404, {:error=>"EventNotFound"}.to_json]
+                else
+
+                    if data["deleted"] == false
+                        eventObj.setundeleted()
+                        $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'LOG',:msg=>"Event Marked UnDeleted: #{eventObj.eventuid}"})
+                    end
+                    
+                    #Collapse the event to a hash for output
+                    eventhash = eventObj.wshash
+                    eventhash[:teamid] = teamParent.teamid
+                    eventRecord = eventhash
+
+                    res = JSON.generate(eventRecord)
+                    $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'LOG',:msg=>"Event Updated: #{eventRecord[:uuid]}"})
+
+                end
+                
+            rescue ArgumentError=>e
+                res = [422, {:error=>"invalidValuesError"}.to_json]
+            rescue JSON::ParserError=>e
+                res = [400, {:error=>"invalidInputError"}.to_json]
+            end
+            
+            #Output the response            
             res
         end
 

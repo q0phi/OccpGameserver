@@ -197,9 +197,20 @@ module OCCPGameServer
 
                 case message.signal
                 
+                #Dump Messages to the Screen only
                 when 'CONSOLE'
-                    #Dump Messages to the Screen and into the logfile
-                  #  puts message.fromid.to_s.yellow + " " + message.msg.to_s
+                    puts message.fromid.to_s.yellow + " " + message.msg.to_s
+                    # from = message.fromid.to_s
+                    # $log.info(from + ": " + message.msg.to_s)
+                
+                #Dump Messages to the Screen and into the logfile
+                when 'CONSOLELOG'
+                    puts message.fromid.to_s.yellow + " " + message.msg.to_s
+                    from = message.fromid.to_s
+                    $log.info(from + ": " + message.msg.to_s)
+                    
+                #Dump Messages into the logfile only
+                when 'LOG'
                     from = message.fromid.to_s
                     $log.info(from + ": " + message.msg.to_s)
 

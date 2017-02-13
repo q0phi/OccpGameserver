@@ -479,7 +479,7 @@ module OCCPGameServer
                         when STOP
                             highL.say("Game is Stopped. Only Status can be shown.")
                         else
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
+                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
                         end
                     }
                     menu.choice(:"Pause"){
@@ -489,14 +489,14 @@ module OCCPGameServer
                         when STOP
                             highL.say("Game is Stopped. Only Status can be shown.")
                         else
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
+                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
                         end
                     }
                     menu.choice(:Status) {
                         highL.say("==================================\n")
 
                         # Notify the system to emit status messages
-                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
+                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'STATUS', :msg=>{}})
 
                         currentStatus = $appCore.STATE
                         case currentStatus
@@ -523,7 +523,7 @@ module OCCPGameServer
                     menu.choice(:Quit) {
                         #if highL.agree("Confirm exit? ", true)
                             highL.say("Exiting...")
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> QUIT}})
+                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> QUIT}})
                             exitable = true
                         #end
                     }
