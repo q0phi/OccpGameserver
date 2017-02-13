@@ -706,6 +706,95 @@ module OCCPGameServer
         res
 	end
 
+=begin
+    @api {get} /events/ Read all events
+    @apiVersion 0.2.0
+    @apiName GetEvents
+    @apiGroup Events
+
+    @apiParam {Number} [start_index=0] Optional Starting Index Entry
+    @apiParam {Number} [max_results=20] Optional Maximum Results Per Page
+
+    @apiSuccess {Number} numberOfResults Number of results found
+    @apiSuccess {Number} startIndex Starting index of this page
+    @apiSuccess {Number} resultsPerPage Number of results per page
+    @apiSuccess {Object[]} events Array of events belonging to this team
+    @apiSuccess {String} events.uuid Unique ID of event isntance
+    @apiSuccess {String} events.guid Registry ID of event type
+    @apiSuccess {String} events.teamid Unique ID of the parent team
+    @apiSuccess {String} events.name Name of the event
+    @apiSuccess {String} events.handler Handler class for the event
+    @apiSuccess {String} events.starttime '''GameTime''' start time for the event
+    @apiSuccess {String} events.endtime '''GameTime''' end time for the event
+    @apiSuccess {Number} events.frequency The number of seconds to elapse between successive events
+    @apiSuccess {Number} events.drift The number of seconds (+/-)to drift from the expected execution time
+    @apiSuccess {String} events.ipaddresspool IP address assignment pool
+    @apiSuccess {Object[]} events.scores Score items associated with this event
+    @apiSuccess {String} events.scores.scoregroup Score group label for this score
+    @apiSuccess {String} events.scores.points Number of points to assign for this score
+    @apiSuccess {Boolean} events.scores.onsuccess Whether to assign points when event succeeds or fails
+
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        {
+            "numberOfResults": 250,
+            "startIndex": 0,
+            "resultsPerPage": 20,
+            "events": [
+                {
+                    "uuid" : "123456-1234-123456",
+                    "guid" : "q-w-e",
+                    "teamid" : "123456-1234-123456"
+                    "name" : "ping",
+                    "handler" : "exec-handler-1",
+                    "starttime" : "00:00:00",
+                    "endtime" : "00:00:00",
+                    "frequency" : "2",
+                    "drift" : "0",
+                    "ipaddresspool" : "pub_1",
+                    "scores" : [    
+                        { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
+                        { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
+                        ]
+                },
+                . . .
+                ]
+        }
+
+    @apiError (Error 4xx) EventsNotFound No events for this scenario found
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "EventsNotFound"
+        }
+=end
+        get '/events/' do
+            teaminfo = nil
+            events = []
+            $appCore.teams.each do |team|
+                # if String(team.teamid) == params[:id]
+                #     teaminfo = true
+                    #Iterate through each list of events of the team
+                    team.singletonList.each do |event|
+                        eventhash = event.wshash
+                        eventhash[:teamid] = team.teamid
+                        events << eventhash
+                    end
+                    team.periodicList.each do |event|
+                        eventhash = event.wshash
+                        eventhash[:teamid] = team.teamid
+                        events << eventhash
+                    end
+                # end
+            end
+            if events.empty?
+                res = [404, {:error=>"EventsNotFound"}.to_json]
+            else
+                res = JSON.generate(events)
+            end
+            res
+        end
 
 
     end #End Class
