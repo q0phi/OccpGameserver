@@ -5,7 +5,7 @@ module OCCPGameServer
     
     class WebListener < Sinatra::Base
 
-        VERSION='0.1.0'
+        VERSION='0.2.0'
         #Challenge Run States
         WAIT = 1
         READY = 2
@@ -966,8 +966,6 @@ module OCCPGameServer
     @apiName PutEvent
     @apiGroup Events
 
-    @apiParam {String} uuid Unique ID of event isntance
-    @apiParam {String} guid Registry ID of event type
     @apiParam {String} teamid Unique ID of the parent team
     @apiParam {String} name Name of the event
     @apiParam {String} handler Handler class for the event
@@ -986,8 +984,6 @@ module OCCPGameServer
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
        {
-            "uuid" : "123456-1234-123456",
-            "guid" : "q-w-e",
             "teamid" : "123456-1234-123456",
             "name" : "ping",
             "handler" : "exec-handler-1",
@@ -1004,11 +1000,11 @@ module OCCPGameServer
         }
 
     @apiError (Error 4xx) EventNotFound No event for this uuid
-    @apiError (Error 5xx) EventNotDeleted Could not delete event
+    @apiError (Error 5xx) EventNotUpdated Could not delete event
     @apiErrorExample Error-Response (example):
         HTTP/1.1 404 NOT FOUND
         {
-            "error" : "EventNotFound"|"EventNotDeleted"
+            "error" : "EventNotFound"|"EventNotUpdated"
         }
 =end
         put '/events/:eventuid/' do
@@ -1050,6 +1046,8 @@ module OCCPGameServer
                         $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'LOG',:msg=>"Event Marked UnDeleted: #{eventObj.eventuid}"})
                     end
                     
+                    eventObj.update(data);
+
                     #Collapse the event to a hash for output
                     eventhash = eventObj.wshash
                     eventhash[:teamid] = teamParent.teamid

@@ -87,6 +87,31 @@ module OCCPGameServer
                 @deleted = false
             end
         end
+        def update( data )
+            @mutex.synchronize do
+                data.each do |field,value|
+                    
+                    case field
+                        when "name"
+                            @name = value
+                        when "handler"
+                            @eventhandler = value
+                        when "starttime"
+                            @starttime = value
+                        when "endtime"
+                            @endtime = value
+                        when "frequency"
+                            @frequency = value
+                        when "drift"
+                            @drift = value
+                        when "ipaddresspool"
+                            @ipaddress = value
+                        when "deleted"
+                            @deleted = value
+                    end
+                end
+            end
+        end
 
     end
 end
