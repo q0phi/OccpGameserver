@@ -305,7 +305,7 @@ module OCCPGameServer
         end
 =begin
     @api {get} /teams/<teamid>/events/ Read team events
-    @apiVersion 0.1.0
+    @apiVersion 0.2.0
     @apiName GetTeamEvents
     @apiGroup Teams
 
@@ -325,6 +325,8 @@ module OCCPGameServer
     @apiSuccess {Number} events.frequency The number of seconds to elapse between successive events
     @apiSuccess {Number} events.drift The number of seconds (+/-)to drift from the expected execution time
     @apiSuccess {String} events.ipaddresspool IP address assignment pool
+    @apiSuccess {Boolean} deleted Deletion status of the event
+    @apiSuccess {Boolean} completed Completion status of the event
     @apiSuccess {Object[]} events.scores Score items associated with this event
     @apiSuccess {String} events.scores.scoregroup Score group label for this score
     @apiSuccess {String} events.scores.points Number of points to assign for this score
@@ -348,6 +350,8 @@ module OCCPGameServer
                     "frequency" : "2",
                     "drift" : "0",
                     "ipaddresspool" : "pub_1",
+                    "deleted" : false,
+                    "completed": false,
                     "scores" : [	
                         { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                         { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
@@ -389,7 +393,7 @@ module OCCPGameServer
 
 =begin
     @api {get} /teams/<teamid>/events/<eventuid> Read team event
-    @apiVersion 0.1.0
+    @apiVersion 0.2.0
     @apiName GetTeamEvent
     @apiGroup Teams
 
@@ -402,6 +406,8 @@ module OCCPGameServer
     @apiSuccess {Number} frequency The number of seconds to elapse between successive events
     @apiSuccess {Number} drift The number of seconds (+/-)to drift from the expected execution time
     @apiSuccess {String} ipaddresspool IP address assignment pool
+    @apiSuccess {Boolean} deleted Deletion status of the event
+    @apiSuccess {Boolean} completed Completion status of the event
     @apiSuccess {Object[]} scores Score items associated with this event
     @apiSuccess {String} scores.scoregroup Score group label for this score
     @apiSuccess {String} scores.points Number of points to assign for this score
@@ -420,6 +426,8 @@ module OCCPGameServer
             "frequency" : "2",
             "drift" : "0",
             "ipaddresspool" : "pub_1",
+            "deleted" : false,
+            "completed": false,
             "scores" : [	
                 { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                 { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
@@ -729,6 +737,8 @@ module OCCPGameServer
     @apiSuccess {Number} events.frequency The number of seconds to elapse between successive events
     @apiSuccess {Number} events.drift The number of seconds (+/-)to drift from the expected execution time
     @apiSuccess {String} events.ipaddresspool IP address assignment pool
+    @apiSuccess {Boolean} deleted Deletion status of the event
+    @apiSuccess {Boolean} completed Completion status of the event
     @apiSuccess {Object[]} events.scores Score items associated with this event
     @apiSuccess {String} events.scores.scoregroup Score group label for this score
     @apiSuccess {String} events.scores.points Number of points to assign for this score
@@ -753,6 +763,8 @@ module OCCPGameServer
                     "frequency" : "2",
                     "drift" : "0",
                     "ipaddresspool" : "pub_1",
+                    "deleted" : false,
+                    "completed": false,
                     "scores" : [    
                         { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                         { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
@@ -809,6 +821,8 @@ module OCCPGameServer
     @apiSuccess {Number} frequency The number of seconds to elapse between successive events
     @apiSuccess {Number} drift The number of seconds (+/-)to drift from the expected execution time
     @apiSuccess {String} ipaddresspool IP address assignment pool
+    @apiSuccess {Boolean} deleted Deletion status of the event
+    @apiSuccess {Boolean} completed Completion status of the event
     @apiSuccess {Object[]} scores Score items associated with this event
     @apiSuccess {String} scores.scoregroup Score group label for this score
     @apiSuccess {String} scores.points Number of points to assign for this score
@@ -828,6 +842,8 @@ module OCCPGameServer
             "frequency" : "2",
             "drift" : "0",
             "ipaddresspool" : "pub_1",
+            "deleted" : false,
+            "completed": false,
             "scores" : [    
                 { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                 { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
@@ -890,6 +906,7 @@ module OCCPGameServer
     @apiSuccess {Number} drift The number of seconds (+/-)to drift from the expected execution time
     @apiSuccess {String} ipaddresspool IP address assignment pool
     @apiSuccess {Boolean} deleted Deletion status of the event
+    @apiSuccess {Boolean} completed Completion status of the event
     @apiSuccess {Object[]} scores Score items associated with this event
     @apiSuccess {String} scores.scoregroup Score group label for this score
     @apiSuccess {String} scores.points Number of points to assign for this score
@@ -910,6 +927,7 @@ module OCCPGameServer
             "drift" : "0",
             "ipaddresspool" : "pub_1",
             "deleted" : true,
+            "completed": false,
             "scores" : [    
                 { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                 { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }

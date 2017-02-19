@@ -11,12 +11,12 @@ module OCCPGameServer
             @scores = Array.new
             @attributes = Array.new
 
-            @frequency = 0 
+            @frequency = 0
             @deleted = false
 
             @eventhandler = eh[:handler]
             @eventuid = eh[:eventuid]
-          
+
             if !eh[:id].nil?
                 @eventid = eh[:id]
             else
@@ -28,13 +28,13 @@ module OCCPGameServer
 
             raise ArgumentError, "event requires a name" if eh[:name].nil?
             @name = eh[:name]
-            
+
             raise ArgumentError, "no start time defined" if eh[:starttime].nil?
             @starttime = eh[:starttime].to_i
-            
+
             raise ArgumentError, "no end time defined" if eh[:endtime].nil?
             @endtime = eh[:endtime].to_i
-            
+
             raise ArgumentError, "no frequency defined --use 0 for a single event--" if eh[:frequency].nil?
             @frequency = eh[:frequency].to_f
 
@@ -55,7 +55,7 @@ module OCCPGameServer
         end
 
         def wshash
-        
+
             event = {
                 :uuid=>@eventuid,
                 :guid=>@eventid,
@@ -67,6 +67,7 @@ module OCCPGameServer
                 :drift=>@drift,
                 :ipaddresspool=>@ipaddress,
                 :deleted=>@deleted,
+                :completed=>@hasrun,
                 :scores=>[]
             }
 
@@ -90,7 +91,7 @@ module OCCPGameServer
         def update( data )
             @mutex.synchronize do
                 data.each do |field,value|
-                    
+
                     case field
                         when "name"
                             @name = value
