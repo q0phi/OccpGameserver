@@ -39,7 +39,7 @@ module OCCPGameServer
         def get_scores
             @names
         end
-        
+
 
         def get_score(name)
             # Evaluate the score in a separate binding context
@@ -55,13 +55,13 @@ module OCCPGameServer
             }
             if formula
                 #Get each component of the formula from their corresponding labels
-                $db.transaction { |selfs| 
-                    @labels.each { |e| 
+                $db.transaction { |selfs|
+                    @labels.each { |e|
                         if formula.match( e[:name] )
                             res = e.prepared_sql.execute!
-                            
+
                             $log.warn("Score-label #{e[:name]} SQL definition returning more than 1 row".yellow) if res.length > 1
-                            
+
                             result = res[0][0] # Row 0 Column 0
                             if result
                                 b.local_variable_set(e[:name], result)
@@ -74,7 +74,10 @@ module OCCPGameServer
 
                 begin
                     score = eval( formula , b ).to_f
-                    if !score.nan?
+                    if score.infinite?
+                        $log.warn "Score #{name} formula results in infinite score"
+                        finalScore = 0.0
+                    elsif !score.nan?
                         finalScore = score
                     else
                         finalScore = 0.0
@@ -82,7 +85,7 @@ module OCCPGameServer
                 rescue ZeroDivisionError => e
                     $log.warn "Score #{name} formula is invalid #{e.message}".yellow
                 end
-            
+
             else
                 $log.error "Score #{name} formula not defined"
             end
