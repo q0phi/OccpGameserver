@@ -266,24 +266,45 @@ module OCCPGameServer
         #Take care of scorekeeping
         scoreKeeper = main_runner.scoreKeeper
 
+        scoreResolutionblock = doc.find('/occpchallenge/scenario/score-resolution').first
+        if scoreResolutionblock
+            begin
+                statsRate = scoreResolutionblock.attributes["rate"].to_f
+                if statsRate > STATISTICS_RESOLUTION_WARNING
+                    $log.warn "Score resolution is set larger than warning resolution of #{STATISTICS_RESOLUTION_WARNING}.".yellow
+                end
+                main_runner.statsResolution = statsRate
+            rescue Error => e
+                msg = 'Error found in file '+ instancefile + ':' + scoreResolutionblock.line_num.to_s + ' - ' + e.to_s
+                puts msg.red
+                $log.fatal msg.red
+                exit(1)
+            end
+        else
+            $log.info "Score resolution is undefined, default set to #{STATISTICS_RESOLUTION_DEFAULT}."
+            main_runner.statsResolution = STATISTICS_RESOLUTION_DEFAULT
+        end
+
+
         $log.info('Parsing Score Data...')
-        scoreblock = doc.find('/occpchallenge/scenario/score-labels').first
+        scoreblock = doc.find('/occpchallenge/scenario/point-labels').first
         scoreblock.each_element { |label|
 
             # Integrity checks
-            name = label.attributes["name"]; sql = label.attributes["sql"]
+            scoreName = label.attributes["name"]
+            sql = label.attributes["sql"]
 
-            raise ArgumentError, 'Argument label-name cannot be blank' if name.nil? || name.empty?
+            raise ArgumentError, 'Argument point-label name cannot be blank' if scoreName.nil? || scoreName.empty?
 
             if sql.nil? || sql.empty?
-                sql = "SELECT SUM(value) FROM SCORES WHERE groupname='#{name}'"
+                sql = "SELECT SUM(value) FROM SCORES WHERE groupname='#{scoreName}'"
             end
 
             begin
-                res = $db.prepare(sql)
-                num_cols = res.columns().count
+                preparedStatement = $db.prepare(sql)
+                num_cols = preparedStatement.columns().count
 
-                raise ArgumentError, "SQL statement returned #{num_cols} cols, expecting 1 column" if num_cols != 1
+                raise ArgumentError, "SQL statement for point-label '#{scoreName}' returned #{num_cols} cols, expecting 1 column" if num_cols != 1
 
             rescue SQLite3::SQLException, ArgumentError => e
                 msg = 'Error found in file '+ instancefile + ':' + label.line_num.to_s + ' - ' + e.to_s
@@ -292,7 +313,7 @@ module OCCPGameServer
                 exit(1)
             end
 
-            tempT = scoreKeeper.ScoreLabel.new(name, sql, res)
+            tempT = scoreKeeper.ScoreLabel.new(scoreName, sql, preparedStatement)
 
             scoreKeeper.labels.push( tempT )
         }
@@ -320,10 +341,11 @@ module OCCPGameServer
 
         return main_runner
 
-    end
+    end # End instace file parsing
 
     log = Log4r::Logger.new('occp')
     loglevels = log.levels.inject(' ') {|accum, item| accum += "#{log.levels.index(item)}=#{item} "}
+    log = nil
 
     #Setup and parse command line parameters
     $options = {}
@@ -420,156 +442,167 @@ module OCCPGameServer
 
     $log.info("Begining new GameLog")
 
-    #Decide if this will be the master or a slave agent
-    if $options[:gamefile]
-        $log.info("GameServer master mode")
 
+    #Parse given instance file
+    $log.debug("Opening instance file located at: " + $options[:gamefile])
 
-        #Parse given instance file
-        $log.debug("Opening instance file located at: " + $options[:gamefile])
+    #Create the database for this run
+    begin
 
-        #Create the database for this run
-        begin
+        $db = SQLite3::Database.new($options[:datafile])
 
-            $db = SQLite3::Database.new($options[:datafile])
+        #pre-populate the table structure
+        dbschema = File.open(File.dirname(__FILE__)+'/../schema.sql', 'r')
 
-            #pre-populate the table structure
-            dbschema = File.open(File.dirname(__FILE__)+'/../schema.sql', 'r')
+        $db.execute_batch dbschema.read
 
-            $db.execute_batch dbschema.read
+        $db.type_translation = true
 
+        #puts db.execute "SELECT * FROM sqlite_master WHERE type='table'"
+        $log.info("Database Created and Initialized")
 
-            #puts db.execute "SELECT * FROM sqlite_master WHERE type='table'"
-            $log.info("Database Created and Initialized")
+        #main_runner.db = db
 
-            #main_runner.db = db
-
-        rescue SQLite3::Exception => e
-            $log.error("Database Initiation Error")
-            $log.error( e )
-        end
-
-        # Process the instance file and get the app core class
-        $appCore = instance_file_parser($options[:gamefile])
-
-        #Launch the main application
-        main = Thread.new { $appCore.run() }
-
-        #Launch the Web Services
-        web = ''
-        web = Thread.new { WebListener.run! }
-
-        #Wait for Sinatra to start completely
-        sleep(1)
-
-        #Setup the menuing system
-        highL = HighLine.new
-        highL.page_at = :auto
-
-        # Handle user terminal
-        userInterface = Thread.new {
-            exitable = false
-            while not exitable do
-                highL.choose do |menu|
-                    menu.header = "==================================\nSelect from the list below"
-                    menu.choice(:"Start"){
-                        highL.say("==================================\n")
-                        currentStatus = $appCore.STATE
-                        case currentStatus
-                        when STOP
-                            highL.say("Game is Stopped. Only Status can be shown.")
-                        else
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
-                        end
-                    }
-                    menu.choice(:"Pause"){
-                        highL.say("==================================\n")
-                        currentStatus = $appCore.STATE
-                        case currentStatus
-                        when STOP
-                            highL.say("Game is Stopped. Only Status can be shown.")
-                        else
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
-                        end
-                    }
-                    menu.choice(:Status) {
-                        highL.say("==================================\n")
-
-                        # Notify the system to emit status messages
-                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'STATUS', :msg=>{}})
-
-                        currentStatus = $appCore.STATE
-                        case currentStatus
-                            when RUN
-                                highL.say("All Teams are Running")
-                            when WAIT
-                                highL.say("Teams are Paused")
-                            when STOP
-                                highL.say("Game is Stopped")
-                        end
-
-                        gTime = Time.at($appCore.gameclock.gametime).utc.strftime("%H:%M:%S")
-                        gLength = Time.at($appCore.gameclock.gamelength).utc.strftime("%H:%M:%S")
-                        highL.say("Current Gametime is: #{gTime} of #{gLength}")
-
-                        $appCore.scoreKeeper.get_names.each{ |scoreName|
-                            highL.say(scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s )
-                        }
-
-                    }
-                    menu.choice(:"Clear Screen") {
-                        system("clear")
-                    }
-                    menu.choice(:Quit) {
-                        #if highL.agree("Confirm exit? ", true)
-                            highL.say("Exiting...")
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> QUIT}})
-                            exitable = true
-                        #end
-                    }
-                    menu.prompt = "Enter Selection: "
-                end
-
-            end
-        }
-
-
-        # Wait for Children to exit
-        if userInterface.alive?
-            $log.debug "Waiting to shutdown UI."
-            userInterface.join
-            $log.debug "Shutdown UI complete."
-        end
-        if main.alive?
-            $log.debug "Waiting to shutdown main."
-            main.join
-            $log.debug "Shutdown main complete."
-        end
-
-        #Log final times
-        if  $appCore.endtime != nil and $appCore.begintime != nil
-            totalgametime = $appCore.endtime - $appCore.begintime
-            $log.info "Total game length: #{'%.2f' % totalgametime} sec"
-            $log.info "Total time paused: #{'%.2f' % (totalgametime - $appCore.gameclock.gametime)} sec"
-        else
-            $log.info "Total game length: NO TIME"
-        end
-        #Log final scores
-        $appCore.scoreKeeper.get_names.each{ |scoreName|
-            $log.info("Score " + scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s)
-        }
-
-        #Cleanup and Close Files
-        $appCore.scoreKeeper.cleanup #close prepared transactions
-        $db.close
-
-        $log.info "GameServer shutdown complete"
-
-    else
-        $log.info "GameServer slave mode"
-
-        #Open listening socket and wait...
-
+    rescue SQLite3::Exception => e
+        $log.error("Database Initiation Error")
+        $log.error( e )
     end
 
-end
+    # Process the instance file and get the app core class
+    $appCore = instance_file_parser($options[:gamefile])
+
+    #Launch the main application
+    main = Thread.new { $appCore.run() }
+
+    #Launch the Web Services
+    web = ''
+    web = Thread.new { WebListener.run! }
+
+    #Wait for Sinatra to start completely
+    sleep(1)
+
+    #Setup the menuing system
+    highL = HighLine.new
+    highL.page_at = :auto
+
+    # Handle user terminal
+    userInterface = Thread.new {
+        exitable = false
+        while not exitable do
+            highL.choose do |menu|
+                menu.header = "==================================\nSelect from the list below"
+                menu.choice(:"Start"){
+                    highL.say("==================================\n")
+                    currentStatus = $appCore.STATE
+                    case currentStatus
+                    when STOP
+                        highL.say("Game is Stopped. Only Status can be shown.")
+                    else
+                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
+                    end
+                }
+                menu.choice(:"Pause"){
+                    highL.say("==================================\n")
+                    currentStatus = $appCore.STATE
+                    case currentStatus
+                    when STOP
+                        highL.say("Game is Stopped. Only Status can be shown.")
+                    else
+                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
+                    end
+                }
+                menu.choice(:Status) {
+                    highL.say("==================================\n")
+
+                    # Notify the system to emit status messages
+                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'STATUS', :msg=>{}})
+
+                    currentStatus = $appCore.STATE
+                    case currentStatus
+                        when RUN
+                            highL.say("All Teams are Running")
+                        when WAIT
+                            highL.say("Teams are Paused")
+                        when STOP
+                            highL.say("Game is Stopped")
+                    end
+
+                    gTime = Time.at($appCore.gameclock.gametime).utc.strftime("%H:%M:%S")
+                    gLength = Time.at($appCore.gameclock.gamelength).utc.strftime("%H:%M:%S")
+                    highL.say("Current Gametime is: #{gTime} of #{gLength}")
+
+                    $appCore.scoreKeeper.get_names.each{ |scoreName|
+                        highL.say(scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s )
+                    }
+
+                }
+                menu.choice(:"Clear Screen") {
+                    system("clear")
+                }
+                menu.choice(:Quit) {
+                    #if highL.agree("Confirm exit? ", true)
+                        highL.say("Exiting...")
+                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> QUIT}})
+                        exitable = true
+                    #end
+                }
+                menu.prompt = "Enter Selection: "
+            end
+
+        end
+    } # User Interface Thread
+
+
+    # Wait for Children to exit
+    if userInterface.alive?
+        $log.debug "Waiting for application UI shutdown..."
+        userInterface.join
+        $log.debug "Shutdown UI complete."
+    end
+    if main.alive?
+        $log.debug "Shutting down application core..."
+        main.join
+        $log.debug "Shutdown main complete."
+    end
+
+    #Log final times
+    if  $appCore.endtime != nil and $appCore.begintime != nil
+        totalgametime = $appCore.endtime - $appCore.begintime
+        $log.info "Total game length: #{'%.2f' % totalgametime} sec"
+        $log.info "Total time paused: #{'%.2f' % (totalgametime - $appCore.gameclock.gametime)} sec"
+    else
+        $log.info "Total game length: NO TIME"
+    end
+    #Log final scores
+    $appCore.scoreKeeper.get_names.each{ |scoreName|
+        $log.info("Score " + scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s)
+    }
+
+    # Terminate the Webservices interface and wait on its shutdown
+    $log.debug "Shutting down Webservices..."
+    web.exit
+    web.join
+    $log.debug "Shutdown Webservices complete."
+
+
+    #Cleanup and close database files
+    $appCore.scoreKeeper.cleanup #close prepared transactions
+    waited = 0
+    while not $db.closed? and waited < 3 do
+        begin
+            $db.close
+            break
+        rescue SQLite3::BusyException => e
+            highL.say("Waiting on database to close...\n")
+            $log.debug "Waiting on database to close because #{e}"
+            sleep(1)
+            waited += 1
+        end
+        $log.error "Unable to close database cleanly".red
+    end
+
+    $log.info "GameServer shutdown complete"
+
+    $log = nil
+
+end #End OCCPGameServer

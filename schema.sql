@@ -7,6 +7,13 @@ CREATE TABLE IF NOT EXISTS scores (
     value REAL
     );
 
+CREATE TABLE IF NOT EXISTS scoredata (
+    time INTEGER,
+    gametime INTEGER,
+    scorename TEXT,
+    value REAL
+    );
+
 CREATE TABLE IF NOT EXISTS events (
     time INTEGER,
     gametimestart REAL,

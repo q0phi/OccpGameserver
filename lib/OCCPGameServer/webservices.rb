@@ -2,7 +2,7 @@ module OCCPGameServer
 
     require 'sinatra/base'
     require'json'
-    
+
     class WebListener < Sinatra::Base
 
         VERSION='0.2.0'
@@ -12,7 +12,7 @@ module OCCPGameServer
         RUN = 3
         STOP = 4
         QUIT = 5
-        
+
         @@game_states = {
             WAIT => 'Paused',
             READY => 'Ready',
@@ -39,14 +39,14 @@ module OCCPGameServer
 
     @apiSuccess {String} application Name of the application
     @apiSuccess {String} version Version of the application
-    
+
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
             "application" : "OCCP GameServer",
             "version" : "1.0.0"
         }
-     
+
 =end
         get '/', :provides => :json do
             info = {:Application => "OCCP GameServer", :Version => OCCPGameServer::VERSION}
@@ -67,7 +67,7 @@ module OCCPGameServer
     @apiSuccess {String} type Type of the scenario
     @apiSuccess {Number} length Length of the scenario in seconds
     @apiSuccess {String} description Short description of the activity of the scenario
-    
+
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
@@ -77,7 +77,7 @@ module OCCPGameServer
             "length" : "300",
             "description" : "A two sentence description of the scenario."
         }
-     
+
 =end
 =begin
     @api {get} /scenario/ Request Scenario Information
@@ -91,7 +91,7 @@ module OCCPGameServer
     @apiSuccess {String} type Type of the scenario
     @apiSuccess {Number} length Length of the scenario in seconds
     @apiSuccess {String} description Short description of the activity of the scenario
-    
+
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
@@ -102,7 +102,7 @@ module OCCPGameServer
             "length" : "300",
             "description" : "A two sentence description of the scenario."
         }
-     
+
 =end
         get '/scenario/' do
 
@@ -135,7 +135,7 @@ module OCCPGameServer
             "gametime" : 15,
             "state" : "RUN"
         }
-        
+
 =end
         get '/gameclock/' do
             info = {
@@ -173,7 +173,7 @@ module OCCPGameServer
         {
             "error" : "invalidValuesError"
         }
-        
+
 =end
         put '/gameclock/' do
             request.body.rewind
@@ -187,7 +187,7 @@ module OCCPGameServer
                 if data["length"] and Integer(data["length"])
                     info[:length] = Integer(data["length"])
                 end
-                    
+
                 if info[:state] #update the game state
                     $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'COMMAND',:msg=>{:command => 'STATE', :state=>info[:state]}})
                     info[:state] = @@game_states[info[:state]]
@@ -195,7 +195,7 @@ module OCCPGameServer
                 if info[:length] #update the game state
                     $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'COMMAND',:msg=>{:command => :LENGTH, :length=>info[:length]}})
                 end
-                
+
                 res = JSON.generate info
             rescue ArgumentError=>e
                 res = [422, {:error=>"invalidValuesError"}.to_json]
@@ -226,10 +226,10 @@ module OCCPGameServer
                 "statevalue": 2
             },
             . . .
-        ]  
+        ]
 =end
         get '/gameclock/states/' do
-            res = @@game_state_verbs.inject([]){|memo,(k,v)| memo << {:stateverb=>v,:statevalue=>k}; memo }        
+            res = @@game_state_verbs.inject([]){|memo,(k,v)| memo << {:stateverb=>v,:statevalue=>k}; memo }
             JSON.generate(res)
         end
 
@@ -247,10 +247,10 @@ module OCCPGameServer
         [ {
             "name" : "Blue Team",
             "id" : "1235-1235-1235"
-          }, 
+          },
           ...
         ]
-        
+
 =end
         get '/teams/' do
             teams = []
@@ -352,7 +352,7 @@ module OCCPGameServer
                     "ipaddresspool" : "pub_1",
                     "deleted" : false,
                     "completed": false,
-                    "scores" : [	
+                    "scores" : [
                         { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                         { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
                         ]
@@ -428,7 +428,7 @@ module OCCPGameServer
             "ipaddresspool" : "pub_1",
             "deleted" : false,
             "completed": false,
-            "scores" : [	
+            "scores" : [
                 { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                 { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
                 ]
@@ -486,7 +486,7 @@ module OCCPGameServer
 
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
-        [ 
+        [
             "service-level",
             "wage-level",
             "empl-level"
@@ -514,8 +514,8 @@ module OCCPGameServer
 
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
-        [ 
-            { 
+        [
+            {
                 name: "service-level",
                 value: "0.0",
                 longname: "Service Level"
@@ -533,16 +533,64 @@ module OCCPGameServer
 =end
         get '/scores/' do
             score_names = $appCore.scoreKeeper.get_scores
-            output = [] 
-            
+            output = []
+
             score_names.each do |scorename|
                 value = $appCore.scoreKeeper.get_score(scorename.name)
                 output.push( { :name => scorename.name, :longname => scorename.lname, :value => value, :description => scorename.descr })
             end
-            
-            
+
+
             if output.nil? || output.empty?
                 res = [404, {:error=>"ScoresNotFound"}.to_json]
+            end
+
+            res = JSON.generate(output)
+            res
+        end
+
+=begin
+    @api {get} /scores/stats/ Read score statistics
+    @apiVersion 0.2.0
+    @apiName GetScoreStats
+    @apiGroup Scores
+
+    @apiDescription Provides an array of object that each containa a score name and an array of score data .
+
+    @apiSuccess {String} name Name of the score
+    @apiSuccess {String} value Value of the score
+
+    @apiParam {Number} [max_results=60] Optional Number of datapoints to return for each score
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        [
+            {
+                name: "service-level",
+                value: [ 0, 2, 4, 6, 8]
+            },
+              ...
+        ]
+
+    @apiError (Error 4xx) ScoreStatisticsNotFound There are no score statistics available.
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "ScoreStatisticsNotFound"
+        }
+=end
+        get '/scores/stats/' do
+            score_names = $appCore.scoreKeeper.get_scores
+            output = []
+
+            score_names.each do |scorename|
+                value = $appCore.scoreKeeper.get_score_stats(scorename.name)
+                output.push( { :name => scorename.name, :value => value } )
+            end
+
+
+            if output.nil? || output.empty?
+                res = [404, {:error=>"ScoreStatisticsNotFound"}.to_json]
             end
 
             res = JSON.generate(output)
@@ -559,7 +607,7 @@ module OCCPGameServer
 
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
-        { 
+        {
             name: "service-level",
             value: "0.0"
         }
@@ -573,7 +621,7 @@ module OCCPGameServer
 =end
 
         get '/scores/:name/' do
-               output = {} 
+               output = {}
             $appCore.scoreKeeper.get_names.each do |scorename|
                 if scorename == params[:name]
                     value = $appCore.scoreKeeper.get_score(scorename)
@@ -597,7 +645,7 @@ module OCCPGameServer
     @apiGroup Log
 
     @apiDescription Provides the current entries of log database. Not Currently Paginated.
-    
+
     @apiSuccess {String} rowid Unique ID of log entry
     @apiSuccess {Number} time Time that the log entry was created in UNIX Epoch seconds
     @apiSuccess {Number} gametimestart Time on the gameclock when the event was initiated in seconds
@@ -633,16 +681,17 @@ module OCCPGameServer
         }
 =end
 	get '/logevents/' do
-        
-        output = []      
+
+        output = []
         res = $db.query('SELECT rowid,* FROM EVENTS')
-        cols = res.columns
         if res
+            cols = res.columns
             res.each do |row|
                 output << Hash[cols.zip(row)]
             end
+            res.close
         end
-            
+
         if output.empty?
             res = [404, {:error=>"NoLogEventsFound"}.to_json]
         else
@@ -651,13 +700,13 @@ module OCCPGameServer
 
         res
 	end
-	
+
 =begin
     @api {get} /logevents/since/<rowid>/ Read all log events from the database that occur after the provided entry id.
     @apiVersion 0.1.0
     @apiName GetEventLogsSince
     @apiGroup Log
-    
+
     @apiSuccess {String} rowid Unique ID of log entry
     @apiSuccess {Number} time Time that the log entry was created in UNIX Epoch seconds
     @apiSuccess {Number} gametimestart Time on the gameclock when the event was initiated in seconds
@@ -695,16 +744,18 @@ module OCCPGameServer
         }
 =end
     get '/logevents/since/:rowid/' do
-        
-        output = []      
+
+        output = []
         res = $db.query('SELECT rowid,* FROM EVENTS WHERE rowid > ?', params[:rowid])
-        cols = res.columns
         if res
+            cols = res.columns
+
             res.each do |row|
                 output << Hash[cols.zip(row)]
             end
+            res.close
         end
-            
+
         if output.empty?
             res = [404, {:error=>"NoLogEventsFound"}.to_json]
         else
@@ -765,7 +816,7 @@ module OCCPGameServer
                     "ipaddresspool" : "pub_1",
                     "deleted" : false,
                     "completed": false,
-                    "scores" : [    
+                    "scores" : [
                         { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                         { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
                         ]
@@ -844,7 +895,7 @@ module OCCPGameServer
             "ipaddresspool" : "pub_1",
             "deleted" : false,
             "completed": false,
-            "scores" : [    
+            "scores" : [
                 { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                 { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
                 ]
@@ -928,7 +979,7 @@ module OCCPGameServer
             "ipaddresspool" : "pub_1",
             "deleted" : true,
             "completed": false,
-            "scores" : [    
+            "scores" : [
                 { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                 { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
                 ]
@@ -974,7 +1025,7 @@ module OCCPGameServer
                 res = JSON.generate(eventRecord)
                 $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'LOG',:msg=>"Event Marked Deleted: #{eventRecord[:uuid]}"})
             end
-            
+
             res
         end
 
@@ -1011,7 +1062,7 @@ module OCCPGameServer
             "drift" : "0",
             "ipaddresspool" : "pub_1",
             "deleted" : true,
-            "scores" : [    
+            "scores" : [
                 { "score-group" : "redteam", "points" : "-13", "onsuccess" : "false" },
                 { "score-group" : "blueteam", "points" : "13", "onsuccess" : "true" }
                 ]
@@ -1031,11 +1082,11 @@ module OCCPGameServer
             eventRecord = nil
             eventObj = nil
             teamParent = nil
-            
+
             begin
                 data = JSON.parse request.body.read
-                
-                
+
+
                 $appCore.teams.each do |team|
                     teamParent = team
                     #Iterate through each list of events of the team
@@ -1055,7 +1106,7 @@ module OCCPGameServer
                     end
                 end
 
-                if eventObj.nil? 
+                if eventObj.nil?
                     res = [404, {:error=>"EventNotFound"}.to_json]
                 else
 
@@ -1063,7 +1114,7 @@ module OCCPGameServer
                         eventObj.setundeleted()
                         $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'LOG',:msg=>"Event Marked UnDeleted: #{eventObj.eventuid}"})
                     end
-                    
+
                     eventObj.update(data);
 
                     #Collapse the event to a hash for output
@@ -1075,14 +1126,14 @@ module OCCPGameServer
                     $appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'LOG',:msg=>"Event Updated: #{eventRecord[:uuid]}"})
 
                 end
-                
+
             rescue ArgumentError=>e
                 res = [422, {:error=>"invalidValuesError"}.to_json]
             rescue JSON::ParserError=>e
                 res = [400, {:error=>"invalidInputError"}.to_json]
             end
-            
-            #Output the response            
+
+            #Output the response
             res
         end
 

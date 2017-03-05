@@ -8,7 +8,7 @@ class NagiosPluginHandler < Handler
         3 => 'UNKNOWN',
     }
 
-   
+
     def initialize(ev_handler_hash)
         super
 
@@ -23,7 +23,7 @@ class NagiosPluginHandler < Handler
          # Check if the :ipaddress field is included
         if eh.include?(:ipaddress)
             # Check if the pool specified exists and has a valid interface
-            if !appCore.ipPools.member?(eh[:ipaddress]) 
+            if !appCore.ipPools.member?(eh[:ipaddress])
                 raise ArgumentError, "event ip address pool name not valid: #{eh[:ipaddress]}"
             elsif appCore.ipPools[eh[:ipaddress]][:ifname] == nil
                 $log.warn "Event #{eh[:name]} uses ip address pool with no interface associated".light_yellow
@@ -55,10 +55,10 @@ class NagiosPluginHandler < Handler
         event.find('parameters/param').each { |param|
             new_event.attributes << { param.attributes["name"] => param.attributes["value"] }
         }
-       
-        # Locate the Nagios command and process it 
+
+        # Locate the Nagios command and process it
         comm = event.find('command').first
-        raise ArgumentError, "no executable command defined" if comm == nil 
+        raise ArgumentError, "no executable command defined" if comm == nil
         commData = comm.content.strip
         raise ArgumentError, "no executable command defined" if commData.empty?
 
@@ -66,29 +66,29 @@ class NagiosPluginHandler < Handler
         raise ArgumentError, "no plugin found installed at #{commData.split[0]}" if not File.file?(commData.split[0])
 
         new_event.command = commData
- 
+
         return new_event
     end
 
     def run(event, app_core)
 
         Log4r::NDC.push('NagiosPluginHandler:')
-        
+
         #TODO Optimize command specialization to arrays
         begin
 
             # run the provided command
             success = system(event.command, [:out, :err]=>'/dev/null')
-        
+
         rescue Exception => e
             msg = "Event failed to run: #{e.message}".red
             $log.warn msg
         end
-        
+
         # Special handling for dry runs
         if $options[:dryrun]
             returnValue = event.attributes.detect {|param| param.key?("dryrunstatus") }
-            if ( returnValue )        
+            if ( returnValue )
                 returnValue = @@nagiosStatus.key(returnValue["dryrunstatus"])
             else
                 returnValue = 0
@@ -101,24 +101,24 @@ class NagiosPluginHandler < Handler
             end
         end
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
-        
-        returnScores = Array.new 
+
+        returnScores = Array.new
         status = UNKNOWN
- 
+
         $log.debug "#{event.eventuid.light_magenta} returned #{returnValue} after executing #{event.command}"
-        
+
         if( success === nil )
             msg = "Command failed to run: #{event.command}"
             $log.error(msg)
             status = UNKNOWN
-        
+
         elsif( returnValue === 0 ) #OK
 
             $log.info "#{event.name} #{event.eventuid.light_magenta} " + @@nagiosStatus[returnValue].green
             status = SUCCESS
-        
-        elsif( [1,2,3].include?(returnValue) ) 
-        
+
+        elsif( [1,2,3].include?(returnValue) )
+
             $log.debug "#{event.name} #{event.eventuid.light_magenta} " + @@nagiosStatus[returnValue].light_red
             status = FAILURE
 
@@ -128,8 +128,8 @@ class NagiosPluginHandler < Handler
 
         # Record Scores to Database
         event.scores.each {|score|
-            if score[:status] === returnValue 
-                returnScores << score 
+            if score[:status] === returnValue
+                returnScores << score
             end
         }
 

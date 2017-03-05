@@ -14,7 +14,7 @@
   <network label="companydmz"/>
   <network label="companylan"/>
   <network label="fake-internet2"/>
-  
+
   <host basevm="Ubuntu_14.04_32bit" domain="butternozzle.com" hostname="www1" label="butterweb1" phase="1" ram="512">
     <interface broadcast="10.0.0.255" config="static" gateway="185.110.107.1" ipv4="185.110.107.101/24" name="eth0" network="fake-internet"/>
     <content>
@@ -38,7 +38,7 @@
       <pack name="refvsnmail"/>
     </content>
   </host>
-  
+
   <host basevm="Ubuntu_12.04_32bit" hostname="gameserver" label="gameserver" phase="1">
     <interface config="static" gateway="1.2.3.4" ipv4="1.2.3.5/24" name="eth1" network="fake-internet"/>
     <content>
@@ -48,14 +48,15 @@
       </pack>
     </content>
   </host>
+
    <!-- Describe the current scenario; instance data can override this section -->
    <scenario description="Protection of a single workstation website/database that is improperly secured." gameid="1" name="Butter Corp" type="Single Host Defence">
 
       <!-- Length of time to run this scenario
          time int
-         format {seconds, minutes, hours} 
+         format {seconds, minutes, hours}
       -->
-      <length format="seconds" time="60"/>
+      <length format="minutes" time="30"/>
 
       <!-- UNUSED Recommended virtual target network -->
       <networkid number="1"/>
@@ -74,37 +75,40 @@
            <scoreboard name="spectator-board"/>
            <permitted-users>
               <user name="spectator"/>
-           </permitted-users>   
+           </permitted-users>
         </user-interface>
         <user-interface name="moderator-ui" show-other-controls="true" show-scoreboard="true" show-teams-all="true">
            <scoreboard name="moderator-board"/>
            <permitted-users>
               <user name="moderator"/>
-           </permitted-users>   
+           </permitted-users>
         </user-interface>
       </user-interfaces>
-      
-      <!-- Score groups labels allow certain events to be grouped together for score calculation 
-         Labels do require any special string. SQL expressions must return a single row and value. 
+
+      <!-- Point labels allow certain events to be grouped together for score calculation
+         Point labels names are required to be valid Ruby vars, i.e. no special chars or hyphens. SQL expressions if provided must return a single row and scalar value.
          If more than one row is returned only the first row is used -->
-      <score-labels>
-        <!-- Example Default query if none provided -->
-        <score-label name="internet"/>
-        <score-label name="dmz"/>
-        <score-label name="lan"/>
-        <score-label name="redteam"/>
-      </score-labels>
+        <!-- Example default query if none provided -->
+        <!-- <point-label name="internet" sql="SELECT SUM(value) FROM SCORES WHERE groupname='#{scoreName}'"/> -->
+      <point-labels>
+        <point-label name="webservice"/>
+        <point-label name="webservicetotal" />
+        <point-label name="uptime"/>
+        <point-label name="uptimetotal"/>
+        <point-label name="redteam"/>
+        <point-label name="redteamtotal"/>
+      </point-labels>
 
       <!-- Scores are calculated by making calculations from the groups of the labels above -->
       <!-- Each score-name is treated as ERb template; use score-label as variables in calculation-->
       <score-names>
-           <score-name descr="Service Level" formula="internet + dmz + lan" name="service-level"/>
-           <score-name descr="Service Level" formula="internet + dmz + lan" name="wage-level"/>
-           <score-name descr="Service Level" formula="internet + dmz + lan" name="empl-level"/>
+           <score-name name="blue-team-score" longname="Blue Team" descr="Displays the Blue team score as a percentage of their uptime." formula="( uptime * 7 + webservice * 4 ) - redteam " />
+           <score-name name="uptime-score" longname="Uptime Score" descr="Shows the total server uptime regardless of breaches." formula="uptime / uptimetotal" />
+           <score-name name="read-team-score" longname="Read Team" descr="The points scored by the automated Red Team." formula="redteam" />
       </score-names>
 
-      <!-- Scoreboards show a particular grouping of scores to user accts with permission -->
-      <!-- This section is used by the web interfaces -->
+      <!-- Scoreboards show a particular grouping of scores to user accts with permission  UNUSED -->
+      <!-- This section is will be used by the web interfaces -->
       <scoreboards>
         <scoreboard name="moderator-board" update-rate="live">
            <score-name name="red-team"/>
@@ -125,9 +129,9 @@
    </scenario>
 
    <!-- IP pools describe pools of ip addresses that an event can use as source addresses. These are useful
-      for allocating to zombie traffic where the particular source address does not matter. 
+      for allocating to zombie traffic where the particular source address does not matter.
       Each pool has the following attributes
-      
+
       Each pool will only can unique addresses. If pool definition specifies overlapping addresses only one address
       is used in the pool. -->
    <ip-pools>
@@ -143,7 +147,7 @@
       <pool cidr="24" gateway="" name="internet_2" network="fake-internet">
           <address addr="7.15.0.0/20" count="30" select="asc" type="range"/>
       </pool>
-      <pool cidr="24" gateway="" name="internet_3" network="fake-internet">
+      <pool cidr="24" gateway="" name="red-team-internet" network="fake-internet">
           <address addr="87.15.0.0/20" count="30" select="asc" type="range"/>
       </pool>
       <pool cidr="24" gateway="" name="lan" network="fake-internet">
@@ -153,8 +157,8 @@
           <address addr="185.110.107.64/27" count="11" select="asc" type="range"/>
       </pool>
    </ip-pools>
-   
-   <!-- Identify the handlers needed to run events 
+
+   <!-- Identify the handlers needed to run events
       name - is locally referenced in the instance file only
       class-handler - must specify the Class name of the handler
    -->
@@ -166,107 +170,127 @@
       <handler class-handler="NagiosPluginHandler" name="nagios-handler"/>
       <handler class-handler="MetasploitHandler" name="metasploit-handler-1" server-hostname="host1" server-ip="" server-port=""/>
    </event-handlers>
-   <!-- Team describes a collection of events for organizational structure 
+
+   <!-- Team describes a collection of events for organizational structure
       name - the friendly name of the team -->
-   <team name="Blue Team">
-   
-      <!-- Identifies the name of the location to dispatch this team to -->
-      <team-host hostname="localhost"/>
-          
-      <!-- Rate at which events are executed from the event list -->
-      <speed factor="1.0"/>
-      
-      <!-- Parent block for events in this teams event list -->
-      <team-event-list>
-          <team-event drift="0" endtime="115" frequency="0" guid="" handler="nagios-handler" id="" ipaddress="internet_1" name="Homepage Check" starttime="112">
-              <command>check_http -I 185.110.107.101 -u / -r 'th5suQ3kF1d9M'</command>
-              <score-atomic points="5" score-group="internet" when="OK"/>
-              <score-atomic points="5" score-group="internet" when="WARNING"/>
-              <score-atomic points="-5" score-group="internet" when="CRITICAL"/>
-              <score-atomic points="-3" score-group="internet" when="UNKNOWN"/>
-          </team-event>
-          <team-event  drift="0" endtime="9999999" frequency="0" guid="" handler="nagios-handler" id="" ipaddress="internet_1" name="Homepage Check to Fail" starttime="112">
-              <command>check_http -I 185.110.107.101 -u / -r 'Rhano'</command>
-              <score-atomic points="5" score-group="internet" when="OK"/>
-              <score-atomic points="5" score-group="internet" when="WARNING"/>
-              <score-atomic points="-5" score-group="internet" when="CRITICAL"/>
-              <score-atomic points="-3" score-group="internet" when="UNKNOWN"/>
-          </team-event>
-          <team-event name="Send Email"  drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" starttime="213">
-              <server ipaddress="185.110.107.101" port="25" />
-              <message-header  fqdn="helper.fake" to="admin@www1.butternozzle.com" from="J F &lt;jake@helper.fake&gt;" subject="Bad Website" />
+    <team name="White Team">
+
+        <!-- Identifies the name of the location to dispatch this team to -->
+        <team-host hostname="localhost"/>
+
+        <!-- Rate at which events are executed from the event list -->
+        <speed factor="1.0"/>
+
+        <!-- Parent block for events in this teams event list -->
+        <team-event-list>
+          <team-event drift="0" endtime="9999999" frequency="5" handler="nagios-handler" ipaddress="internet_1" name="Homepage Check" starttime="5">
+                <command>check_http -I 185.110.107.101 -u / -r th5suQ3kF1d9M</command>
+                <score-atomic points="3" score-group="webservice" when="OK"/>
+                <score-atomic points="3" score-group="webservicetotal" when="OK"/>
+                <score-atomic points="3" score-group="webservicetotal" when="CRITICAL"/>
+                <score-atomic points="0" score-group="webservicetotal" when="UNKNOWN"/>
+            </team-event>
+            <team-event drift="0" endtime="9999999" frequency="5" handler="exec-handler" ipaddress="internet_1" name="Web Server Ping" starttime="5">
+                <command>ping -c 1 185.110.107.101</command>
+                <score-atomic points="1" score-group="uptime" when="success"/>
+                <score-atomic points="1" score-group="uptimetotal" when="success"/>
+                <score-atomic points="1" score-group="uptimetotal" when="fail"/>
+            </team-event>
+            <team-event drift="0" endtime="9999999" frequency="10" handler="exec-handler" ipaddress="internet_1" name="Web Server Ping that Fails" starttime="5">
+                <command>ping -c 1 185.110.107.101</command>
+                <score-atomic points="1" score-group="uptime" when="success"/>
+                <score-atomic points="1" score-group="uptimetotal" when="success"/>
+                <score-atomic points="1" score-group="uptimetotal" when="fail"/>
+                <parameters><param name="dryrunstatus" value="fail" /></parameters>
+            </team-event>
+
+          </team-event-list>
+    </team>
+
+    <team name="Blue Team">
+
+        <!-- Identifies the name of the location to dispatch this team to -->
+        <team-host hostname="localhost"/>
+
+        <!-- Rate at which events are executed from the event list -->
+        <speed factor="1.0"/>
+
+        <!-- Parent block for events in this teams event list -->
+        <team-event-list>
+          <team-event drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" name="blue Team Helper Email" starttime="60">
+              <server ipaddress="185.110.107.101" port="25"/>
+              <message-header fqdn="butter.corp" from="O. Redenbacher &lt;orbacher@butter.corp&gt;" subject="I can not access the site!" to="admin@www1.butternozzle.com"/>
               <body><![CDATA[Dear Administrator,
-
-I hate your website. Vegetables are gross. give me more popcorn.
-
+I have lost access to the website. I need to be able to put up the new updates. Ever since
+we fired our last website administrator I have had to due all the updates myself. I keep getting
+an error that says permission denied. Please fix this as soon as possible and never
+hire that guy B.R. Sprouts he is terrible.
 Sincerely,
-    Your Mom.]]></body>
-              <score-atomic points="5" score-group="internet" when="OK"/>
-          </team-event>
-          <team-event  drift="0" endtime="9999999" 
-              frequency="0" guid="" handler="scp-handler" id="" ipaddress="internet_3" name="SCP Big File" starttime="10">
-              <server ipaddress="185.110.107.101" port="25" username="brsprouts" password="vegetable"/>
-              <upload local='content/bigfile.dd' remote='bigfile.dd' />
-              <score-atomic points="5" score-group="dmz" when="success"/>
-              <score-atomic points="-3" score-group="redteam" when="fail"/>
-          </team-event>
-          <team-event  drift="0" endtime="9999999" 
-              frequency="0" guid="" handler="scp-handler" id="" ipaddress="internet_3" name="SCP Two Files" starttime="100">
-              <server ipaddress="185.110.107.101" port="25" username="brsprouts" password="vegetable"/>
-              <upload local='content/index.php' remote='/var/www/html/' />
-              <download local='content/' remote='/var/www/html/defaced.php' />
-              <score-atomic points="5" score-group="redteam" when="success"/>
-              <score-atomic points="-3" score-group="lan" when="fail"/>
-          </team-event>
-          <team-event  drift="0" endtime="9999999" 
-              frequency="0" guid="" handler="db-handler" id="" ipaddress="internet_3" name="DB Compromise" starttime="5">
-              <server ipaddress="185.110.107.101" port="3306" dbname="buttercorp"  username="root" password="toor"/>
-              <action file='content/deface.sql'/>
-              <score-atomic points="15" score-group="redteam" when="success"/>
-              <score-atomic points="-3" score-group="internet" when="fail"/>
-          </team-event>
-
+    O. Redenbacher]]></body>
+              <score-atomic points="1" score-group="uptime" when="success"/>
+              <score-atomic points="1" score-group="uptimetotal" when="success"/>
+              <score-atomic points="1" score-group="uptimetotal" when="fail"/>
+            </team-event>
         </team-event-list>
     </team>
 
     <team name="Gray Team">
-   
-      <!-- Identifies the name of the location to dispatch this team to -->
-      <team-host hostname="localhost"/>
-          
-      <!-- Rate at which events are executed from the event list -->
-      <speed factor="1.0"/>
-      
-      <!-- Parent block for events in this teams event list -->
-      <team-event-list>
-          <team-event  drift="0" endtime="9999999" frequency="5" guid="" handler="exec-handler" id="" ipaddress="internet_2" name="Exec Ping" starttime="1110">
-              <command>ping -c 1 185.110.107.101</command>
-           <score-atomic points="5" score-group="internet" when="success"/>
-           <score-atomic points="-3" score-group="internet" when="fail"/>
-        </team-event>
-          <team-event  drift="0" endtime="9999999" frequency="0" guid="" handler="exec-handler" id="" ipaddress="internet_2" name="Exec Ping" starttime="3">
-              <command>ping -c 1 185.110.107.101</command>
-           <score-atomic points="5" score-group="internet" when="success"/>
-           <score-atomic points="-3" score-group="internet" when="fail"/>
-        </team-event>
-          <team-event  drift="0" endtime="9999999" frequency="0" guid="" handler="exec-handler" id="" ipaddress="internet_1" name="Exec Ping 5" starttime="5">
-              <command>ping -c 1 185.110.107.101</command>
-           <score-atomic points="5" score-group="internet" when="success"/>
-           <score-atomic points="-3" score-group="internet" when="fail"/>
-        </team-event>
-          <team-event  drift="0" endtime="9999999" frequency="0" guid="" handler="exec-handler" id="" ipaddress="internet_1" name="Exec Ping 8" starttime="8">
-              <command>ping -c 1 185.110.107.101</command>
-           <score-atomic points="-3" score-group="internet" when="fail"/>
-        </team-event>
-          <team-event  drift="0" endtime="9999999" frequency="0" guid="" handler="exec-handler" id="" ipaddress="internet_1" name="Exec Ping 11" starttime="11">
-              <command>ping -c 1 185.110.107.101</command>
-           <score-atomic points="-3" score-group="internet" when="fail"/>
-        </team-event>
-          <team-event  drift="0" endtime="9999999" frequency="0" guid="" handler="exec-handler" id="" ipaddress="internet_1" name="Exec Ping 14" starttime="14">
-              <command>ping -c 1 185.110.107.101</command>
-           <score-atomic points="-3" score-group="internet" when="fail"/>
-        </team-event>
 
-      </team-event-list>
-   </team>
+        <!-- Identifies the name of the location to dispatch this team to -->
+        <team-host hostname="localhost"/>
+
+        <!-- Rate at which events are executed from the event list -->
+        <speed factor="1.0"/>
+
+        <!-- Parent block for events in this teams event list -->
+        <!-- The Grey team usually represents background traffic or noise and does not generate point or scoring values. -->
+        <team-event-list>
+
+            <team-event drift="2" endtime="9999999" frequency="3" handler="nagios-handler" ipaddress="internet_1" name="Homepage access noise" starttime="5">
+                <command>check_http -I 185.110.107.101</command>
+            </team-event>
+
+            <team-event drift="1" endtime="9999999" frequency="2" guid="" handler="exec-handler" id="" ipaddress="internet_1" name="Web server ping noise" starttime="5">
+                <command>ping -c 1 185.110.107.101</command>
+            </team-event>
+
+            <team-event drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" name="Send angry customer email" starttime="90">
+              <server ipaddress="185.110.107.101" port="25"/>
+              <message-header fqdn="helper.fake" from="J F &lt;jake@helper.fake&gt;" subject="Bad Website" to="admin@www1.butternozzle.com"/>
+              <body><![CDATA[Dear Administrator,
+I hate your website. Vegetables are gross. give me more popcorn.
+Sincerely,
+    Your Mom.]]></body>
+                <score-atomic points="5" score-group="internet" when="OK"/>
+            </team-event>
+        </team-event-list>
+    </team>
+
+    <team name="Red Team">
+
+        <!-- Identifies the name of the location to dispatch this team to -->
+        <team-host hostname="localhost"/>
+
+        <!-- Rate at which events are executed from the event list -->
+        <speed factor="1.0"/>
+
+        <!-- Parent block for events in this teams event list -->
+        <team-event-list>
+
+            <team-event drift="0" endtime="9999999" frequency="0" guid="" handler="db-handler" id="" ipaddress="red-team-internet" name="DB compromise webserver" starttime="45">
+                <server dbname="buttercorp" ipaddress="185.110.107.101" password="toor" port="3306" username="root"/>
+                <action file="content/deface.sql"/>
+                <score-atomic points="5" score-group="redteam" when="success"/>
+                <score-atomic points="5" score-group="redteamtotal" when="success"/>
+            </team-event>
+
+            <team-event drift="0" endtime="9999999" frequency="15" guid="" handler="scp-handler" id="" ipaddress="red-team-internet" name="SCP file compromise using stolen credentials" starttime="500">
+                <server ipaddress="185.110.107.101" password="vegetable" port="25" username="brsprouts"/>
+                <upload local="content/defaced.php" remote="/var/www/html/index.php"/>
+                <score-atomic points="5" score-group="redteam" when="success"/>
+                <score-atomic points="5" score-group="redteamtotal" when="success"/>
+            </team-event>
+        </team-event-list>
+    </team>
+
 </occpchallenge>

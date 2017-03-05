@@ -1,6 +1,6 @@
 # OCCPGameServer
 
-TODO: Write a gem description
+The Open Cyber Challenge Platform primary game engine.
 
 ## Installation
 
@@ -20,10 +20,7 @@ Or install it yourself as:
 
 TODO: Write usage instructions here
 
-## Contributing
+## Building Notes
 
-1. Fork it
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
+1. Update Ruby to 2.2.6 from 2.2.1 with new gems ;; Need to finish upgrading to newest 2.x branch
+

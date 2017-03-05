@@ -91,14 +91,91 @@ module OCCPGameServer
             end
 
             return finalScore
-        end
+        end # End Get Score
 
         def cleanup
 
             @labels.each{|label|
                 label.prepared_sql.close
+                $log.debug "Point-label #{label.name} SQL statement closed."
             }
 
+        end
+
+        def generate_statistics(gametime)
+            # Evaluate the score in a separate binding context
+            b = binding
+
+            finalScore = nil
+            @names.each{ |scoreName|
+                formula = nil
+                formula = scoreName.formula
+
+                if formula
+
+                    #Get each component of the formula from their corresponding labels
+                    $db.transaction { |selfs|
+                        @labels.each { |e|
+                            if formula.match( e[:name] )
+                                pointLabel = e.prepared_sql.execute!
+
+                                $log.warn("Point-label #{e[:name]} SQL definition returning more than 1 row".yellow) if pointLabel.length > 1
+
+                                labelValue = pointLabel[0][0] # Row 0 Column 0
+                                if labelValue
+                                    b.local_variable_set(e[:name], labelValue)
+                                elsif
+                                    #if the point-label is not curerntly set treat it like 0 points
+                                    b.local_variable_set(e[:name], 0.0)
+                                end
+                            end
+                        }
+                    }
+
+                    begin
+                        score = eval( formula , b ).to_f
+                        if score.infinite?
+                            $log.warn "Score #{name} formula resulted in infinite score, treating as zero value".yellow
+                            finalScore = 0.0
+                        elsif !score.nan?
+                            timeT = Time.now.to_i
+                            # Record a valid value in the database
+                            $db.execute("INSERT INTO scoredata VALUES (?,?,?,?)", [timeT, gametime, scoreName.name, score])
+                            $log.debug "Database insert"
+                        else
+                            finalScore = 0.0
+                        end
+                    rescue ZeroDivisionError => e
+                        $log.warn "Score #{name} formula is invalid #{e.message}".yellow
+                    end
+
+                else
+                    $log.error "Score #{name} formula not defined"
+                end
+
+            }
+        end # End generate_statistics
+
+        #Return the statistics requested
+        def get_score_stats( scorename, opts = {:offset => 0, :duration => 0, :resolution => 0} )
+
+            # If the scorename is not provided return a failuire
+            if scorename.empty?
+                return false
+            end
+
+            #Begin building the query we need
+            query = "SELECT * FROM scoredata where scorename = ?"
+
+            output =[]
+            if true
+                statsData = $db.execute(query, [scorename])
+                statsData.each do |row|
+                    output << row[3]
+                end
+            end
+
+            return output
         end
 
     end #end Class
