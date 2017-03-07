@@ -560,8 +560,6 @@ module OCCPGameServer
     @apiSuccess {String} name Name of the score
     @apiSuccess {String} value Value of the score
 
-    @apiParam {Number} [max_results=60] Optional Number of datapoints to return for each score
-
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         [
@@ -580,11 +578,85 @@ module OCCPGameServer
         }
 =end
         get '/scores/stats/' do
+
             score_names = $appCore.scoreKeeper.get_scores
             output = []
 
             score_names.each do |scorename|
                 value = $appCore.scoreKeeper.get_score_stats(scorename.name)
+                output.push( { :name => scorename.name, :value => value } )
+            end
+
+
+            if output.nil? || output.empty?
+                res = [404, {:error=>"ScoreStatisticsNotFound"}.to_json]
+            end
+
+            res = JSON.generate(output)
+            res
+        end
+
+=begin
+    @api {put} /scores/stats/ Read score statistics
+    @apiVersion 0.2.0
+    @apiName GetScoreStats
+    @apiGroup Scores
+
+    @apiDescription Provides an array of object that each containa a score name and an array of score data .
+
+    @apiSuccess {String} name Name of the score
+    @apiSuccess {String} value Value of the score
+
+    @apiParam {Number} [gametime] Optional End time of the range to select. Default current gametime.
+    @apiParma {Number} [length] Optional Number of seconds in the range. Counts from [gametime] backwards.
+
+    @apiSuccessExample Success-Response (example):
+        HTTP/1.1 200 OK
+        [
+            {
+                name: "service-level",
+                value: [ 0, 2, 4, 6, 8]
+            },
+              ...
+        ]
+
+    @apiError (Error 4xx) ScoreStatisticsNotFound There are no score statistics available.
+    @apiErrorExample Error-Response (example):
+        HTTP/1.1 404 NOT FOUND
+        {
+            "error" : "ScoreStatisticsNotFound"
+        }
+=end
+
+        put '/scores/stats/' do
+
+            #Grab any provided parameters set defaults otherwise
+            request.body.rewind
+
+            info = {}
+
+            begin
+                bodydata = JSON.parse request.body.read
+                if bodydata["gametime"] and Integer(bodydata["gametime"])
+                    info[:gametime] = Integer(bodydata["gametime"])
+                end
+                if bodydata["length"] and Integer(bodydata["length"])
+                    info[:length] = Integer(bodydata["length"])
+                end
+            rescue ArgumentError=>e
+                res = [422, {:error=>"invalidValuesError"}.to_json]
+            rescue JSON::ParserError=>e
+                res = [400, {:error=>"invalidInputError"}.to_json]
+            end
+            if res
+                return res
+            end
+
+            score_names = $appCore.scoreKeeper.get_scores
+            output = []
+
+            score_names.each do |scorename|
+                value = $appCore.scoreKeeper.get_score_stats(scorename.name, info)
                 output.push( { :name => scorename.name, :value => value } )
             end
 

@@ -157,22 +157,53 @@ module OCCPGameServer
         end # End generate_statistics
 
         #Return the statistics requested
-        def get_score_stats( scorename, opts = {:offset => 0, :duration => 0, :resolution => 0} )
+        def get_score_stats( scorename, opts = {} )
+
+            # opts = { :gametime => 0, :length => 0, :resolution => 0 }
 
             # If the scorename is not provided return a failuire
             if scorename.empty?
                 return false
             end
 
+            if not opts[:gametime]
+                opts[:gametime] = -1
+            end
+            if not opts[:length]
+                opts[:length] = 600
+            end
+
             #Begin building the query we need
-            query = "SELECT * FROM scoredata where scorename = ?"
+            query = "SELECT gametime, value FROM scoredata where scorename = ?"
+
+            endtime = ''
+            starttime = ''
+            if opts[:gametime] != -1
+                endtime = " and gametime < #{opts[:gametime]}"
+            end
+
+            if opts[:length] > 0
+                if opts[:gametime] != -1
+                    sTime = opts[:gametime] - opts[:length]
+                else
+                    sTime = $appCore.gameclock.gametime - opts[:length]
+                end
+                if sTime >= 0
+                    starttime = " and gametime > #{sTime}"
+                end
+            end
+
+            query = query + starttime + endtime + " order by gametime"
+
+            $log.debug "Score Stats Query: " + query
 
             output =[]
             if true
                 statsData = $db.execute(query, [scorename])
-                statsData.each do |row|
-                    output << row[3]
-                end
+                output = statsData
+                # statsData.each do |row|
+                #     output << row[0], row[1]
+                # end
             end
 
             return output
