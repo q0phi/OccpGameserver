@@ -608,7 +608,7 @@ module OCCPGameServer
     @apiSuccess {String} value Value of the score
 
     @apiParam {Number} [gametime] Optional End time of the range to select. Default current gametime.
-    @apiParma {Number} [length] Optional Number of seconds in the range. Counts from [gametime] backwards.
+    @apiParam {Number} [length] Optional Number of seconds in the range. Counts from [gametime] backwards.
 
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
