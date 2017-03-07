@@ -155,6 +155,12 @@ module OCCPGameServer
     @apiParam {Number} length Length of the scenario in seconds
     @apiParam {Number} state The current state of the game clock
 
+    @apiParamExample {json} Request-Example:
+        {
+            length: 600,
+            state: 2
+        }
+
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         {
@@ -599,16 +605,22 @@ module OCCPGameServer
 =begin
     @api {put} /scores/stats/ Read score statistics range
     @apiVersion 0.2.0
-    @apiName GetScoreStats
+    @apiName GetScoreStatsRange
     @apiGroup Scores
 
     @apiDescription Provides an array of object that each containa a score name and an array of score data .
 
-    @apiSuccess {String} name Name of the score
-    @apiSuccess {String} value Value of the score
+    @apiParamExample {json} Request-Example:
+        {
+            gametime: 2000,
+            length: 600
+        }
 
     @apiParam {Number} [gametime] Optional End time of the range to select. Default current gametime.
-    @apiParam {Number} [length] Optional Number of seconds in the range. Counts from [gametime] backwards.
+    @apiParam {Number} [length] Optional Number of seconds in the range. Counts from <code>gametime</code> backwards.
+
+    @apiSuccess {String} name Name of the score
+    @apiSuccess {String} value Value of the score
 
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
