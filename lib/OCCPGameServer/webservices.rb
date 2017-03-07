@@ -597,7 +597,7 @@ module OCCPGameServer
         end
 
 =begin
-    @api {put} /scores/stats/ Read score statistics
+    @api {put} /scores/stats/ Read score statistics range
     @apiVersion 0.2.0
     @apiName GetScoreStats
     @apiGroup Scores
