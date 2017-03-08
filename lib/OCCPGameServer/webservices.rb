@@ -564,14 +564,14 @@ module OCCPGameServer
     @apiDescription Provides an array of object that each containa a score name and an array of score data .
 
     @apiSuccess {String} name Name of the score
-    @apiSuccess {String} value Value of the score
+    @apiSuccess {String} value Array of Gametime and Score pairs.
 
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         [
             {
                 name: "service-level",
-                value: [ 0, 2, 4, 6, 8]
+                value: [ [0,0], [10, 0.0], [20,0.0] ]
             },
               ...
         ]
@@ -620,14 +620,14 @@ module OCCPGameServer
     @apiParam {Number} [length] Optional Number of seconds in the range. Counts from <code>gametime</code> backwards.
 
     @apiSuccess {String} name Name of the score
-    @apiSuccess {String} value Value of the score
+    @apiSuccess {String} value Array of Gametime and Score pairs.
 
     @apiSuccessExample Success-Response (example):
         HTTP/1.1 200 OK
         [
             {
                 name: "service-level",
-                value: [ 0, 2, 4, 6, 8]
+                value: [ [0,0], [10, 0.0], [20,0.0] ]
             },
               ...
         ]
@@ -647,21 +647,25 @@ module OCCPGameServer
 
             info = {}
 
-            begin
-                bodydata = JSON.parse request.body.read
-                if bodydata["gametime"] and Integer(bodydata["gametime"])
-                    info[:gametime] = Integer(bodydata["gametime"])
+            bodydata = request.body.read
+            if bodydata != nil and not bodydata.empty?
+                #$appCore.INBOX << GMessage.new({:fromid=>'WebClient',:signal=>'CONSOLE',:msg=>"Body Content:#{bodydata}:::" })
+                begin
+                    bodydata = JSON.parse( bodydata )
+                    if bodydata["gametime"] and Integer(bodydata["gametime"])
+                        info[:gametime] = Integer(bodydata["gametime"])
+                    end
+                    if bodydata["length"] and Integer(bodydata["length"])
+                        info[:length] = Integer(bodydata["length"])
+                    end
+                rescue ArgumentError=>e
+                    res = [422, {:error=>"invalidValuesError"}.to_json]
+                rescue JSON::ParserError=>e
+                    res = [400, {:error=>"invalidInputError"}.to_json]
                 end
-                if bodydata["length"] and Integer(bodydata["length"])
-                    info[:length] = Integer(bodydata["length"])
+                if res
+                    return res
                 end
-            rescue ArgumentError=>e
-                res = [422, {:error=>"invalidValuesError"}.to_json]
-            rescue JSON::ParserError=>e
-                res = [400, {:error=>"invalidInputError"}.to_json]
-            end
-            if res
-                return res
             end
 
             score_names = $appCore.scoreKeeper.get_scores
