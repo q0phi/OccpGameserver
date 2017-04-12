@@ -253,8 +253,78 @@ Sincerely,
             <team-event drift="1" endtime="9999999" frequency="2" guid="" handler="exec-handler" id="" ipaddress="internet_1" name="Web server ping noise" starttime="5">
                 <command>ping -c 1 185.110.107.101</command>
             </team-event>
+            <team-event drift="2" endtime="9999999" frequency="3" handler="nagios-handler" ipaddress="internet_1" name="Homepage access noise" starttime="5">
+                <command>check_http -I 185.110.107.101</command>
+            </team-event>
 
+            <team-event drift="1" endtime="9999999" frequency="2" guid="" handler="exec-handler" id="" ipaddress="internet_1" name="Web server ping noise" starttime="5">
+                <command>ping -c 1 185.110.107.101</command>
+            </team-event>
+            <team-event drift="2" endtime="9999999" frequency="3" handler="nagios-handler" ipaddress="internet_1" name="Homepage access noise" starttime="5">
+                <command>check_http -I 185.110.107.101</command>
+            </team-event>
+
+            <team-event drift="1" endtime="9999999" frequency="2" guid="" handler="exec-handler" id="" ipaddress="internet_1" name="Web server ping noise" starttime="5">
+                <command>ping -c 1 185.110.107.101</command>
+            </team-event>
+            <team-event drift="2" endtime="9999999" frequency="3" handler="nagios-handler" ipaddress="internet_1" name="Homepage access noise" starttime="5">
+                <command>check_http -I 185.110.107.101</command>
+            </team-event>
+
+            <team-event drift="1" endtime="9999999" frequency="2" guid="" handler="exec-handler" id="" ipaddress="internet_1" name="Web server ping noise" starttime="5">
+                <command>ping -c 1 185.110.107.101</command>
+            </team-event>
             <team-event drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" name="Send angry customer email" starttime="90">
+              <server ipaddress="185.110.107.101" port="25"/>
+              <message-header fqdn="helper.fake" from="J F &lt;jake@helper.fake&gt;" subject="Bad Website" to="admin@www1.butternozzle.com"/>
+              <body><![CDATA[Dear Administrator,
+I hate your website. Vegetables are gross. give me more popcorn.
+Sincerely,
+    Your Mom.]]></body>
+                <score-atomic points="5" score-group="internet" when="OK"/>
+            </team-event>
+            <team-event drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" name="Send angry customer email" starttime="90">
+              <server ipaddress="185.110.107.101" port="25"/>
+              <message-header fqdn="helper.fake" from="J F &lt;jake@helper.fake&gt;" subject="Bad Website" to="admin@www1.butternozzle.com"/>
+              <body><![CDATA[Dear Administrator,
+I hate your website. Vegetables are gross. give me more popcorn.
+Sincerely,
+    Your Mom.]]></body>
+                <score-atomic points="5" score-group="internet" when="OK"/>
+            </team-event>
+            <team-event drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" name="Send angry customer email" starttime="90">
+              <server ipaddress="185.110.107.101" port="25"/>
+              <message-header fqdn="helper.fake" from="J F &lt;jake@helper.fake&gt;" subject="Bad Website" to="admin@www1.butternozzle.com"/>
+              <body><![CDATA[Dear Administrator,
+I hate your website. Vegetables are gross. give me more popcorn.
+Sincerely,
+    Your Mom.]]></body>
+                <score-atomic points="5" score-group="internet" when="OK"/>
+            </team-event><team-event drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" name="Send angry customer email" starttime="90">
+              <server ipaddress="185.110.107.101" port="25"/>
+              <message-header fqdn="helper.fake" from="J F &lt;jake@helper.fake&gt;" subject="Bad Website" to="admin@www1.butternozzle.com"/>
+              <body><![CDATA[Dear Administrator,
+I hate your website. Vegetables are gross. give me more popcorn.
+Sincerely,
+    Your Mom.]]></body>
+                <score-atomic points="5" score-group="internet" when="OK"/>
+            </team-event><team-event drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" name="Send angry customer email" starttime="90">
+              <server ipaddress="185.110.107.101" port="25"/>
+              <message-header fqdn="helper.fake" from="J F &lt;jake@helper.fake&gt;" subject="Bad Website" to="admin@www1.butternozzle.com"/>
+              <body><![CDATA[Dear Administrator,
+I hate your website. Vegetables are gross. give me more popcorn.
+Sincerely,
+    Your Mom.]]></body>
+                <score-atomic points="5" score-group="internet" when="OK"/>
+            </team-event><team-event drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" name="Send angry customer email" starttime="90">
+              <server ipaddress="185.110.107.101" port="25"/>
+              <message-header fqdn="helper.fake" from="J F &lt;jake@helper.fake&gt;" subject="Bad Website" to="admin@www1.butternozzle.com"/>
+              <body><![CDATA[Dear Administrator,
+I hate your website. Vegetables are gross. give me more popcorn.
+Sincerely,
+    Your Mom.]]></body>
+                <score-atomic points="5" score-group="internet" when="OK"/>
+            </team-event><team-event drift="0" endtime="9999999" frequency="0" guid="" handler="email-handler" id="" ipaddress="internet_1" name="Send angry customer email" starttime="90">
               <server ipaddress="185.110.107.101" port="25"/>
               <message-header fqdn="helper.fake" from="J F &lt;jake@helper.fake&gt;" subject="Bad Website" to="admin@www1.butternozzle.com"/>
               <body><![CDATA[Dear Administrator,

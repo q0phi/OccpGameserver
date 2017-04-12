@@ -28,6 +28,8 @@ module OCCPGameServer
             @labels = Array.new
             @names = Array.new
 
+            @mutex = Mutex.new
+
         end
 
         def get_labels
@@ -54,23 +56,35 @@ module OCCPGameServer
                 end
             }
             if formula
-                #Get each component of the formula from their corresponding labels
-                $db.transaction { |selfs|
-                    @labels.each { |e|
-                        if formula.match( e[:name] )
-                            res = e.prepared_sql.execute!
+                transnum = SecureRandom.uuid
+                begin
+                    #Get each component of the formula from their corresponding labels
+                    @mutex.synchronize do
 
-                            $log.warn("Score-label #{e[:name]} SQL definition returning more than 1 row".yellow) if res.length > 1
+                        $log.debug("Initiate score transaction #{transnum}")
+                        $db.transaction { |selfs|
 
-                            result = res[0][0] # Row 0 Column 0
-                            if result
-                                b.local_variable_set(e[:name], result)
-                            elsif
-                                b.local_variable_set(e[:name],0.0)
-                            end
-                        end
-                    }
-                }
+                            @labels.each { |e|
+                                if formula.match( e[:name] )
+                                    res = e.prepared_sql.execute!
+
+                                    $log.warn("Score-label #{e[:name]} SQL definition returning more than 1 row".yellow) if res.length > 1
+
+                                    result = res[0][0] # Row 0 Column 0
+                                    if result
+                                        b.local_variable_set(e[:name], result)
+                                    elsif
+                                        b.local_variable_set(e[:name],0.0)
+                                    end
+                                end
+                            }
+                            $log.debug("Close score transaction #{transnum}")
+                        }
+                    end
+                rescue SQLite3::SQLException => e
+                    $log.debug("Simultaneous transaction error #{transnum}")
+                    return nil
+                end
 
                 begin
                     score = eval( formula , b ).to_f
@@ -113,25 +127,26 @@ module OCCPGameServer
 
                 if formula
 
-                    #Get each component of the formula from their corresponding labels
-                    $db.transaction { |selfs|
-                        @labels.each { |e|
-                            if formula.match( e[:name] )
-                                pointLabel = e.prepared_sql.execute!
+                    @mutex.synchronize do
+                        #Get each component of the formula from their corresponding labels
+                        $db.transaction { |selfs|
+                            @labels.each { |e|
+                                if formula.match( e[:name] )
+                                    pointLabel = e.prepared_sql.execute!
 
-                                $log.warn("Point-label #{e[:name]} SQL definition returning more than 1 row".yellow) if pointLabel.length > 1
+                                    $log.warn("Point-label #{e[:name]} SQL definition returning more than 1 row".yellow) if pointLabel.length > 1
 
-                                labelValue = pointLabel[0][0] # Row 0 Column 0
-                                if labelValue
-                                    b.local_variable_set(e[:name], labelValue)
-                                elsif
-                                    #if the point-label is not curerntly set treat it like 0 points
-                                    b.local_variable_set(e[:name], 0.0)
+                                    labelValue = pointLabel[0][0] # Row 0 Column 0
+                                    if labelValue
+                                        b.local_variable_set(e[:name], labelValue)
+                                    elsif
+                                        #if the point-label is not curerntly set treat it like 0 points
+                                        b.local_variable_set(e[:name], 0.0)
+                                    end
                                 end
-                            end
+                            }
                         }
-                    }
-
+                    end
                     begin
                         score = eval( formula , b ).to_f
                         if score.infinite?
