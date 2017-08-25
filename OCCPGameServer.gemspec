@@ -28,7 +28,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "colorize", "~> 0.7"
   spec.add_runtime_dependency "log4r", "~> 1.1"
   spec.add_runtime_dependency "sqlite3", "~> 1.3"
-  spec.add_runtime_dependency "libxml-ruby", "~> 2.7"
+  spec.add_runtime_dependency "libxml-ruby", "= 2.8"
   spec.add_runtime_dependency "highline", "~> 1.6"
   spec.add_runtime_dependency "netaddr", "~> 1.5"
   spec.add_runtime_dependency "sinatra", "~> 1.4"
