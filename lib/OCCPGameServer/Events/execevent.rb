@@ -1,16 +1,12 @@
 module OCCPGameServer
     class ExecEvent < Event
 
-    attr_accessor :command, :parameters, :ipaddress
+        attr_accessor :command
 
-    def initialize(eh)
-        super
+        def initialize(eh)
+            super
 
-        raise ArgumentError, "no executable command defined" if eh[:command].nil? || eh[:command].empty?
-        @command = eh[:command]
-        
+        end
 
-    end
-
-end #End Class
+    end #End Class
 end

@@ -17,8 +17,14 @@ require "colorize"
 require 'securerandom'
 require 'simple-random'
 require 'netaddr'
+require 'net/smtp'
+require 'net/scp'
+require 'mysql2'
+require 'erb'
 
 require "OCCPGameServer/version"
+require "OCCPGameServer/constants"
+require "OCCPGameServer/utils"
 require "OCCPGameServer/main"
 require "OCCPGameServer/gameclock"
 require "OCCPGameServer/team"
@@ -26,26 +32,32 @@ require "OCCPGameServer/gmessage"
 require "OCCPGameServer/score"
 require "OCCPGameServer/iptools"
 require "OCCPGameServer/webservices"
+require "OCCPGameServer/libwrapper"
+require "OCCPGameServer/errors"
 require "OCCPGameServer/Handlers/handler"
 require "OCCPGameServer/Handlers/exechandler"
 require "OCCPGameServer/Handlers/metasploithandler"
+require "OCCPGameServer/Handlers/nagiospluginhandler"
+require "OCCPGameServer/Handlers/emailhandler"
+require "OCCPGameServer/Handlers/scphandler"
+require "OCCPGameServer/Handlers/dbhandler"
 require "OCCPGameServer/Events/event"
 require "OCCPGameServer/Events/execevent"
 require "OCCPGameServer/Events/metasploitevent"
+require "OCCPGameServer/Events/nagiospluginevent"
+require "OCCPGameServer/Events/emailevent"
+require "OCCPGameServer/Events/scpevent"
+require "OCCPGameServer/Events/dbevent"
 
 module OCCPGameServer
-    #Challenge Run States
-    WAIT = 1
-    READY = 2
-    RUN = 3
-    STOP = 4
-    QUIT = 5
+
+    String.disable_colorization = false
 
     include LibXML
 
     $appCore = nil;
 
-    # Takes an instance configuration file and returns an instance of the core application. 
+    # Takes an instance configuration file and returns an instance of the core application.
     def self.instance_file_parser(instancefile)
 
         instance_parser = XML::Parser.file(instancefile)
@@ -67,13 +79,14 @@ module OCCPGameServer
         main_runner = Main.new
 
         main_runner.scenarioname = scenario_name
-        
+
         main_runner.gameid = doc.find('/occpchallenge/scenario').first["gameid"]
         $log.info "Game ID: " + main_runner.gameid
         main_runner.type = doc.find('/occpchallenge/scenario').first["type"]
         $log.info "Game type: " + main_runner.type
         main_runner.description = doc.find('/occpchallenge/scenario').first["description"]
         $log.info "Game description: " + main_runner.description
+        main_runner.scenariouid = SecureRandom.uuid
 
         #Setup the game clock
         length_node = doc.find('/occpchallenge/scenario/length').first
@@ -115,15 +128,27 @@ module OCCPGameServer
         ip_pools.each_element do |pool|
             poolHash = pool.attributes.to_h
             poolHash = poolHash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
+
+            definedPool = main_runner.interfaces.find{|interface| poolHash[:network] == interface[:network]}
+            if definedPool == nil
+                    msg = "WARNING in file #{instancefile}: #{pool.line_num.to_s} - No defined interfaces for network #{poolHash[:network]} in address pool #{poolHash[:name]}"
+                    $log.warn(msg.to_s.light_yellow)
+                    puts msg.to_s.light_yellow
+                    poolIfName = nil
+            else
+                poolIfName = definedPool[:name]
+            end
+
+            poolHash.merge!({:ifname => poolIfName})
             poolHash.merge!({:addresses => Array.new})
 
             pool.each_element do |addrDef|
                 addrHash = addrDef.attributes.to_h
                 addrHash = addrHash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
-           
+
                 begin
-                    case addrHash[:type] 
-                    when 'range' 
+                    case addrHash[:type]
+                    when 'range'
                         poolHash[:addresses] += IPTools.generate_address_list(addrHash)
                     when 'list'
                         # Decode the content block as CSV addresses
@@ -150,25 +175,25 @@ module OCCPGameServer
 
    #    # Register the team host locations (minimally localhost)
    #      team_node = doc.find('/occpchallenge/team-hosts').first
-   #      team_node.each_element do |element| 
+   #      team_node.each_element do |element|
    #          el_hash = element.attributes.to_h
    #          el_hash = el_hash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
 
-   #          # Setup the team host in the MP registry 
+   #          # Setup the team host in the MP registry
    #          $log.info "New Team Host: " + el_hash[:name]
 
    #          main_runner.add_host(el_hash)
    #      end
-           
-                
+
+
         #Instantiate the event-handlers for this scenario
         eventhandler_node = doc.find('/occpchallenge/event-handlers').first
         eventhandler_node.each_element {|element|
             el_hash = element.attributes.to_h
             el_hash = el_hash.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
-            
+
             $log.debug "Request Handler: " + el_hash[:"class-handler"]
-          
+
             begin
                 handler_class = OCCPGameServer.const_get(el_hash[:"class-handler"]).new(el_hash)
                 main_runner.add_handler(handler_class)
@@ -177,9 +202,9 @@ module OCCPGameServer
                error = "Handler Not Found: " + el_hash[:"class-handler"] + " class file may be missing."
                $log.warn(error)
             end
-           
+
         }
-        
+
         # Load each team by parsing
         $log.info('Parsing Team Data...')
         i=1
@@ -197,22 +222,22 @@ module OCCPGameServer
                 new_team.speedfactor = teamxmlnode.find('speed').first.attributes["factor"]
 
                 teamxmlnode.find('team-event-list').each{ |eventlist|
-                    
+
                     #Validate each event
                     eventlist.find('team-event').each {|event|
-                            
+
                         #First Identify the handler
                         handler_name = event.attributes["handler"]
                         event_handler = main_runner.get_handler(handler_name)
                         raise ArgumentError, "Error found in file #{instancefile}: #{event.line_num.to_s} - handler #{handler_name} not defined" if event_handler.nil?
-                       
+
 
                         begin
                             this_event = event_handler.parse_event(event, main_runner)
                         rescue ArgumentError=>e
                             raise ArgumentError, "Error found in file #{instancefile}: #{event.line_num.to_s} - #{e.message}"
                         end
-                       
+
                         #Split the list into periodic and single events
                         if this_event.frequency.eql?(0.0)
                             new_team.singletonList << this_event
@@ -223,7 +248,7 @@ module OCCPGameServer
                         end
 
                     }
-            
+
                 }
 
             rescue ArgumentError => e
@@ -240,25 +265,46 @@ module OCCPGameServer
 
         #Take care of scorekeeping
         scoreKeeper = main_runner.scoreKeeper
-        
-        $log.info('Parsing Score Data...')
-        scoreblock = doc.find('/occpchallenge/scenario/score-labels').first
-        scoreblock.each_element { |label|
-            
-            # Integrity checks
-            name = label.attributes["name"]; sql = label.attributes["sql"]
 
-            raise ArgumentError, 'Argument label-name cannot be blank' if name.nil? || name.empty?
-            
+        scoreResolutionblock = doc.find('/occpchallenge/scenario/score-resolution').first
+        if scoreResolutionblock
+            begin
+                statsRate = scoreResolutionblock.attributes["rate"].to_f
+                if statsRate > STATISTICS_RESOLUTION_WARNING
+                    $log.warn "Score resolution is set larger than warning resolution of #{STATISTICS_RESOLUTION_WARNING}.".yellow
+                end
+                main_runner.statsResolution = statsRate
+            rescue Error => e
+                msg = 'Error found in file '+ instancefile + ':' + scoreResolutionblock.line_num.to_s + ' - ' + e.to_s
+                puts msg.red
+                $log.fatal msg.red
+                exit(1)
+            end
+        else
+            $log.info "Score resolution is undefined, default set to #{STATISTICS_RESOLUTION_DEFAULT}."
+            main_runner.statsResolution = STATISTICS_RESOLUTION_DEFAULT
+        end
+
+
+        $log.info('Parsing Score Data...')
+        scoreblock = doc.find('/occpchallenge/scenario/point-labels').first
+        scoreblock.each_element { |label|
+
+            # Integrity checks
+            scoreName = label.attributes["name"]
+            sql = label.attributes["sql"]
+
+            raise ArgumentError, 'Argument point-label name cannot be blank' if scoreName.nil? || scoreName.empty?
+
             if sql.nil? || sql.empty?
-                sql = "SELECT SUM(value) FROM SCORE WHERE groupname='#{name}'"
+                sql = "SELECT SUM(value) FROM SCORES WHERE groupname='#{scoreName}'"
             end
 
             begin
-                res = $db.prepare(sql)
-                num_cols = res.columns().count
-                
-                raise ArgumentError, "SQL statement returned #{num_cols} cols, expecting 1 column" if num_cols != 1
+                preparedStatement = $db.prepare(sql)
+                num_cols = preparedStatement.columns().count
+
+                raise ArgumentError, "SQL statement for point-label '#{scoreName}' returned #{num_cols} cols, expecting 1 column" if num_cols != 1
 
             rescue SQLite3::SQLException, ArgumentError => e
                 msg = 'Error found in file '+ instancefile + ':' + label.line_num.to_s + ' - ' + e.to_s
@@ -266,30 +312,45 @@ module OCCPGameServer
                 $log.fatal msg.red
                 exit(1)
             end
-            
-            tempT = scoreKeeper.ScoreLabel.new(name, sql, res)
+
+            tempT = scoreKeeper.ScoreLabel.new(scoreName, sql, preparedStatement)
 
             scoreKeeper.labels.push( tempT )
         }
         scoreblock = doc.find('/occpchallenge/scenario/score-names').first
-        scoreblock.each_element { |name|
-            $log.debug "Parsing Score Name: " + name.attributes["name"]
-            tempT = scoreKeeper.ScoreName.new(name.attributes["name"], name.attributes["formula"], name.attributes["descr"])
+        scoreblock.each_element { |scorename|
+            $log.debug "Parsing Score Name: " + scorename["name"]
+            name = scorename["name"]
+            lname = scorename["longname"]
+            formula = scorename["formula"]
+            descr = scorename["descr"]
+            # Integrity check
+            tempT = scoreKeeper.ScoreName.new(name,lname,formula,descr)
             scoreKeeper.names.push( tempT )
+            begin
+                raise ParsingError, "missing attributes in score-name definition" if formula.nil? or name.nil? or descr.nil?
+                scoreKeeper.get_score(name)
+            rescue ParsingError => e
+                msg = "Error found in file #{instancefile}: #{scorename.line_num.to_s} - #{e.message}".red
+                puts msg
+                $log.fatal msg
+                exit(1)
+            end
         }
 
-        
+
         return main_runner
 
-    end
-   
+    end # End instace file parsing
+
     log = Log4r::Logger.new('occp')
     loglevels = log.levels.inject(' ') {|accum, item| accum += "#{log.levels.index(item)}=#{item} "}
+    log = nil
 
     #Setup and parse command line parameters
     $options = {}
     $options[:logfile] = "gamelog.txt" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".txt"
-    $options[:loglevel] = 2 
+    $options[:loglevel] = 2
     $options[:datafile] = "gamedata.db" #" + Time.new.strftime("%Y%m%dT%H%M%S") + ".db"
 
     opt_parser = OptionParser.new do |opt|
@@ -299,14 +360,14 @@ module OCCPGameServer
         opt.on("-f","--instance-file filename", "Scenario configuration file") do |gamefile|
             $options[:gamefile] = File.expand_path( gamefile, Dir.getwd) # File.dirname(__FILE__))
         end
-        
+
         opt.separator "Optional:"
         opt.separator ""
         opt.on("-l","--logfile filename", "File name of log file") do |logfile|
             filename = $options[:logfile]
             if File.directory?(logfile)
                 $options[:logfile] = File.join(logfile,filename)
-            else    
+            else
                 $options[:logfile] = logfile
             end
         end
@@ -314,7 +375,7 @@ module OCCPGameServer
         opt.on("--log-level integer", Integer, "Set the verbosity level of the log file,", "[#{loglevels}]") do |loglevel|
             if not loglevel.nil?
                 begin
-                    Log4r::Log4rTools.validate_level(loglevel) 
+                    Log4r::Log4rTools.validate_level(loglevel)
                     $options[:loglevel] = loglevel
                 rescue
                     # levels = Log4r::Log4rTools.max_level_str_size
@@ -322,12 +383,12 @@ module OCCPGameServer
                     exit
                 end
             end
-                
+
         end
 
         opt.on("-d","--database filename", "File name of the database for event and score records") do |datafile|
-            filename = $options[:datafile] 
-            
+            filename = $options[:datafile]
+
             if File.directory?(datafile)
                 fp = File.join(datafile,filename)
                 if File.exist?(fp)
@@ -335,10 +396,14 @@ module OCCPGameServer
                 end
                 $options[:datafile] = fp
 
-            else    
+            else
                 $options[:datafile] = datafile
             end
 
+        end
+
+        opt.on("--[no-]dry-run", "Dry run of the instance file without specified success values") do |dryrun|
+            $options[:dryrun] = dryrun
         end
 
         opt.separator ""
@@ -346,7 +411,7 @@ module OCCPGameServer
             puts opt
             exit
         end
-        
+
         opt.on_tail("--version", "Show version") do
             puts "Open Cyber Challenge Platform"
             puts "http://www.opencyberchallenge.net"
@@ -369,164 +434,175 @@ module OCCPGameServer
 
     # Output to the filepath given
     fileoutputter = Log4r::FileOutputter.new('GameServer', {:trunc => true , :filename => $options[:logfile]})
-    fileoutputter.formatter = Log4r::PatternFormatter.new(:pattern => "[%l] %d %x %m")
-    
+    fileoutputter.formatter = Log4r::PatternFormatter.new({:pattern => "[%l] %d %x %m", :date_pattern => '%H:%M:%S'})
+
     Log4r::NDC.push('OCCP GS:')
-    
+
     $log.outputters = [fileoutputter]
-    
+
     $log.info("Begining new GameLog")
 
-    #Decide if this will be the master or a slave agent
-    if $options[:gamefile] 
-        $log.info("GameServer master mode")
 
-        
-        #Parse given instance file
-        $log.debug("Opening instance file located at: " + $options[:gamefile])
-        
-        #Create the database for this run
-        begin
+    #Parse given instance file
+    $log.debug("Opening instance file located at: " + $options[:gamefile])
 
-            $db = SQLite3::Database.new($options[:datafile])
+    #Create the database for this run
+    begin
 
-            #pre-populate the table structure
-            dbschema = File.open(File.dirname(__FILE__)+'/../schema.sql', 'r')
-            
-            $db.execute_batch dbschema.read
-        
+        $db = SQLite3::Database.new($options[:datafile])
 
-            #puts db.execute "SELECT * FROM sqlite_master WHERE type='table'"
-            $log.info("Database Created and Initialized")
+        #pre-populate the table structure
+        dbschema = File.open(File.dirname(__FILE__)+'/../schema.sql', 'r')
 
-            #main_runner.db = db
+        $db.execute_batch dbschema.read
 
-        rescue SQLite3::Exception => e
-            $log.error("Database Initiation Error")
-            $log.error( e )
-        end
+        $db.type_translation = true
 
-        # Process the instance file and get the app core class
-        $appCore = instance_file_parser($options[:gamefile])
+        #puts db.execute "SELECT * FROM sqlite_master WHERE type='table'"
+        $log.info("Database Created and Initialized")
 
-        #Launch the main application
-        main = Thread.new { $appCore.run() }
-  
-        #Launch the Web Services
-        web = Thread.new { WebListener.run! }
+        #main_runner.db = db
 
-        #Wait for Sinatra to start completely
-        sleep(1)
-
-        #Setup the menuing system
-        highL = HighLine.new
-        highL.page_at = :auto
-
-        # Handle user terminal
-        userInterface = Thread.new {
-            exitable = false
-            while not exitable do
-                highL.choose do |menu|
-                    menu.header = "==================================\nSelect from the list below"
-                    menu.choice(:"Start"){
-                        highL.say("==================================\n")
-                        currentStatus = $appCore.STATE
-                        case currentStatus
-                        when STOP
-                            highL.say("Game is Stopped. Only Status can be shown.")
-                        else
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
-                        end
-                    }
-                    menu.choice(:"Pause"){
-                        highL.say("==================================\n")
-                        currentStatus = $appCore.STATE
-                        case currentStatus
-                        when STOP
-                            highL.say("Game is Stopped. Only Status can be shown.")
-                        else
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
-                        end
-                    }
-                    menu.choice(:Status) {
-                        highL.say("==================================\n")
-                        
-                        # Notify the system to emit status messages
-                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'STATUS', :msg=>{}})
-                        
-                        currentStatus = $appCore.STATE
-                        case currentStatus
-                            when RUN
-                                highL.say("All Teams are Running")
-                            when WAIT
-                                highL.say("Teams are Paused")
-                            when STOP
-                                highL.say("Game is Stopped")
-                        end
-
-                        gTime = Time.at($appCore.gameclock.gametime).utc.strftime("%H:%M:%S")
-                        gLength = Time.at($appCore.gameclock.gamelength).utc.strftime("%H:%M:%S")
-                        highL.say("Current Gametime is: #{gTime} of #{gLength}")
-
-                        $appCore.scoreKeeper.get_names.each{ |scoreName|
-                            highL.say(scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s )
-                        }
-
-                        
-                    }
-                    menu.choice(:"Clear Screen") {
-                        system("clear")
-                    }
-                    menu.choice(:Quit) {
-                        #if highL.agree("Confirm exit? ", true)
-                            highL.say("Exiting...")
-                            $appCore.INBOX << GMessage.new({:fromid=>'CONSOLE',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> QUIT}})
-                            exitable = true
-                        #end
-                    }
-                    menu.prompt = "Enter Selection: "
-                end
-
-            end
-        }
-        
-         
-        # Wait for Children to exit
-        if userInterface.alive?
-            $log.debug "Waiting to shutdown UI."
-            userInterface.join
-            $log.debug "Shutdown UI complete."
-        end
-        if main.alive?
-            $log.debug "Waiting to shutdown main."
-            main.join
-            $log.debug "Shutdown main complete."
-        end
-
-        #Log final times
-        if  $appCore.endtime != nil and $appCore.begintime != nil
-            totalgametime = $appCore.endtime - $appCore.begintime
-            $log.info "Total game length: #{'%.2f' % totalgametime} sec"
-            $log.info "Total time paused: #{'%.2f' % (totalgametime - $appCore.gameclock.gametime)} sec"
-        else
-            $log.info "Total game length: NO TIME"
-        end
-        #Log final scores
-        $appCore.scoreKeeper.get_names.each{ |scoreName|
-            $log.info("Score " + scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s)
-        }
-
-        #Cleanup and Close Files
-        $appCore.scoreKeeper.cleanup #close prepared transactions
-        $db.close
-
-        $log.info "GameServer shutdown complete"
-
-    else
-        $log.info "GameServer slave mode"
-
-        #Open listening socket and wait...
-
+    rescue SQLite3::Exception => e
+        $log.error("Database Initiation Error")
+        $log.error( e )
     end
-    
-end
+
+    # Process the instance file and get the app core class
+    $appCore = instance_file_parser($options[:gamefile])
+
+    #Launch the main application
+    main = Thread.new { $appCore.run() }
+
+    #Launch the Web Services
+    web = ''
+    web = Thread.new { WebListener.run! }
+
+    #Wait for Sinatra to start completely
+    sleep(1)
+
+    #Setup the menuing system
+    highL = HighLine.new
+    highL.page_at = :auto
+
+    # Handle user terminal
+    userInterface = Thread.new {
+        exitable = false
+        while not exitable do
+            highL.choose do |menu|
+                menu.header = "==================================\nSelect from the list below"
+                menu.choice(:"Start"){
+                    highL.say("==================================\n")
+                    currentStatus = $appCore.STATE
+                    case currentStatus
+                    when STOP
+                        highL.say("Game is Stopped. Only Status can be shown.")
+                    else
+                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> RUN}})
+                    end
+                }
+                menu.choice(:"Pause"){
+                    highL.say("==================================\n")
+                    currentStatus = $appCore.STATE
+                    case currentStatus
+                    when STOP
+                        highL.say("Game is Stopped. Only Status can be shown.")
+                    else
+                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> WAIT}})
+                    end
+                }
+                menu.choice(:Status) {
+                    highL.say("==================================\n")
+
+                    # Notify the system to emit status messages
+                    $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'STATUS', :msg=>{}})
+
+                    currentStatus = $appCore.STATE
+                    case currentStatus
+                        when RUN
+                            highL.say("All Teams are Running")
+                        when WAIT
+                            highL.say("Teams are Paused")
+                        when STOP
+                            highL.say("Game is Stopped")
+                    end
+
+                    gTime = Time.at($appCore.gameclock.gametime).utc.strftime("%H:%M:%S")
+                    gLength = Time.at($appCore.gameclock.gamelength).utc.strftime("%H:%M:%S")
+                    highL.say("Current Gametime is: #{gTime} of #{gLength}")
+
+                    $appCore.scoreKeeper.get_names.each{ |scoreName|
+                        highL.say(scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s )
+                    }
+
+                }
+                menu.choice(:"Clear Screen") {
+                    system("clear")
+                }
+                menu.choice(:Quit) {
+                    #if highL.agree("Confirm exit? ", true)
+                        highL.say("Exiting...")
+                        $appCore.INBOX << GMessage.new({:fromid=>'CONSOLELOG',:signal=>'COMMAND', :msg=>{:command => 'STATE', :state=> QUIT}})
+                        exitable = true
+                    #end
+                }
+                menu.prompt = "Enter Selection: "
+            end
+
+        end
+    } # User Interface Thread
+
+
+    # Wait for Children to exit
+    if userInterface.alive?
+        $log.debug "Waiting for application UI shutdown..."
+        userInterface.join
+        $log.debug "Shutdown UI complete."
+    end
+    if main.alive?
+        $log.debug "Shutting down application core..."
+        main.join
+        $log.debug "Shutdown main complete."
+    end
+
+    #Log final times
+    if  $appCore.endtime != nil and $appCore.begintime != nil
+        totalgametime = $appCore.endtime - $appCore.begintime
+        $log.info "Total game length: #{'%.2f' % totalgametime} sec"
+        $log.info "Total time paused: #{'%.2f' % (totalgametime - $appCore.gameclock.gametime)} sec"
+    else
+        $log.info "Total game length: NO TIME"
+    end
+    #Log final scores
+    $appCore.scoreKeeper.get_names.each{ |scoreName|
+        $log.info("Score " + scoreName + ': ' + $appCore.scoreKeeper.get_score(scoreName).to_s)
+    }
+
+    # Terminate the Webservices interface and wait on its shutdown
+    $log.debug "Shutting down Webservices..."
+    web.exit
+    web.join
+    $log.debug "Shutdown Webservices complete."
+
+
+    #Cleanup and close database files
+    $appCore.scoreKeeper.cleanup #close prepared transactions
+    waited = 0
+    while not $db.closed? and waited < 3 do
+        begin
+            $db.close
+            break
+        rescue SQLite3::BusyException => e
+            highL.say("Waiting on database to close...\n")
+            $log.debug "Waiting on database to close because #{e}"
+            sleep(1)
+            waited += 1
+        end
+        $log.error "Unable to close database cleanly".red
+    end
+
+    $log.info "GameServer shutdown complete"
+
+    $log = nil
+
+end #End OCCPGameServer

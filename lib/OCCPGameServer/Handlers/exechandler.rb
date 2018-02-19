@@ -1,46 +1,31 @@
 module OCCPGameServer
 class ExecHandler < Handler
 
-    @@ipAddress = Struct.new(:ipaddress) do
-        def get_address
-            if ipaddress == 'random'
-                ip = ''
-            else
-                ip = ipaddress
-            end
-            return ip
-        end
-    end
-
     def initialize(ev_handler_hash)
         super
-
-        @interface = ev_handler_hash[:interface]
 
     end
 
     # Parse the exec event xml code into a execevent object
     def parse_event(event, appCore)
-        require 'securerandom'
-
-        eh = event.attributes.to_h.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
+        # Perform basic hash conversion
+        eh = super
         
-        eh.merge!({:eventuid => SecureRandom.uuid})
-
         new_event  = ExecEvent.new(eh)
-       
-        # cross-verify event networking
-        #netHash = appCore.get_network(new_event.network)
-        #raise ArgumentError, "event network label not defined #{new_event.network}" if netHash.nil? || netHash.empty?
-
-        # check for a valid ip address or pool name
-        #begin
-        #    NetAddr.validate_ip_addr(event[:ipaddress])
-        #    new_event.ipaddress = event[:ipaddress]
-        #rescue NetAddr::ValidationError => e
-            raise ArgumentError, "event ip addrress or pool name not valid: #{event[:ipaddress]}" if !appCore.ipPools.member?(event[:ipaddress])
-            new_event.ipaddress = event[:ipaddress]
-        #end
+        
+        # Check if the :ipaddress field is included
+        if eh.include?(:ipaddress)
+            # Check if the pool specified exists and has a valid interface
+            if !appCore.ipPools.member?(eh[:ipaddress]) 
+                raise ArgumentError, "event ip address pool name not valid: #{eh[:ipaddress]}"
+            elsif appCore.ipPools[eh[:ipaddress]][:ifname] == nil
+                $log.warn "Event #{eh[:name]} uses ip address pool with no interface associated".light_yellow
+            end
+            # Assign the pool name even if their is no interface ready
+            new_event.ipaddress = eh[:ipaddress]
+        else
+            $log.debug "Event #{eh[:name]} does not define an ip address pool; local exec only"
+        end
 
         # Add scores to event
         event.find('score-atomic').each{ |score|
@@ -60,6 +45,13 @@ class ExecHandler < Handler
             new_event.attributes << { param.attributes["name"] => param.attributes["value"] }
         }
         
+        comm = event.find('command').first
+        raise ArgumentError, "no executable command defined" if comm == nil 
+        commData = comm.content
+        raise ArgumentError, "no executable command defined" if commData.empty?
+
+        new_event.command = commData 
+
         return new_event
     end
 
@@ -67,85 +59,67 @@ class ExecHandler < Handler
 
         Log4r::NDC.push('ExecHandler:')
         
-        # setup the execution space
-        # IE get a network namespace for this execution for the given IP address
-        ipPool = app_core.get_ip_pool(event.ipaddress)
-        if ipPool.nil? || ipPool.empty?
-            raise ArgumentError, "event ip address pool not defined"
-        end
-        
-        netLink = app_core.get_network(ipPool[:network])[:name]
-        if netLink.nil? || netLink.empty?
-            raise ArgumentError, "event ip address pool interface not defined"
-        end
-       
-        ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
-        netInfo = {:iface => netLink, :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
-        #print "net info #{netInfo}"
-        begin
-            netNS = app_core.get_netns(netInfo) 
-        rescue ArgumentError => e
-            msg = "unable to create network namespace for event #{e}"
-            print msg.red
-            $log.error msg.red
-        end
-
-        # Prep the events command
-        newCom = netNS.comwrap(event.command)
-
-        gameTimeStart = $appCore.gameclock.gametime
+        nsCommand = event.command
 
         #TODO Optimize command specialization to arrays
         begin
             # run the provided command
-            #puts event.name + event.command.to_s
-            success = system(newCom, [:out, :err]=>'/dev/null')
+            success = system(nsCommand, [:out, :err]=>'/dev/null')
         
         rescue Exception => e
-            app_core.release_netns(netNS.nsName)
             msg = "Event failed to run: #{e.message}".red
             $log.warn msg
         end
         
-        gameTimeEnd = $appCore.gameclock.gametime
-        app_core.release_netns(netNS.nsName)
-        
-        #Log message that the event ran
-        msgHash = {:handler => 'ExecHandler', :eventname => event.name, :eventuid => event.eventuid, :custom => event.command,
-                    :starttime => gameTimeStart, :endtime => gameTimeEnd }
-        
         $log.debug "#{event.eventuid.light_magenta} executed #{event.command}"
-        
+       
+        # Special handling for dry runs
+        if $options[:dryrun]
+            returnValue = event.attributes.find {|param| param.key?("dryrunstatus") }
+            if ( returnValue )        
+                case returnValue["dryrunstatus"]
+                when 'success'
+                    success = true
+                when 'fail'
+                    success = false
+                end
+            else
+                success = true
+            end
+        end
+ 
+        returnScores = Array.new 
+        status = UNKNOWN
         if( success === true )
-
             $log.info "#{event.name} #{event.eventuid.light_magenta} " + "SUCCESS".green
-            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'SUCCESS'}) })
             
             #Score Database
             event.scores.each {|score|
                 if score[:succeed]
-                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
+                    returnScores << score
                 end
             }
 
+            status = SUCCESS
         elsif( success === nil )
-                msg = "Command failed to run: #{event.command}"
-                $log.error(msg)
+            msg = "Command failed to run: #{event.command}"
+            $log.error(msg)
 
+            status = UNKNOWN
         else
             $log.debug "#{event.name} #{event.eventuid.light_magenta} " + "FAILED".light_red
-            app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'EVENTLOG', :msg=>msgHash.merge({:status => 'FAILED'}) })
             
             #Score Database
             event.scores.each {|score|
                 if !score[:succeed]
-                    app_core.INBOX << GMessage.new({:fromid=>'ExecHandler',:signal=>'SCORE', :msg=>score.merge({:eventuid => event.eventuid})})
+                    returnScores << score
                 end
             }
+            status = FAILURE
         end
 
         Log4r::NDC.pop
-
+        return {:status => status, :scores => returnScores, :handler => 'ExecHandler', :custom=> event.command}
     end
 
 end #end class

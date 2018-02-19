@@ -1,5 +1,4 @@
-# A sample Gemfile
+# Gemfile for the OCCP GameServer Application
 source "https://rubygems.org"
 
-# gem "rails"
 gemspec

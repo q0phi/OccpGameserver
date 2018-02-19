@@ -1,4 +1,4 @@
-module GameServerConfig
+module OCCPGameServer
 
     Listen_address="0.0.0.0"
     Listen_port="24365"
@@ -9,5 +9,11 @@ module GameServerConfig
     # for re-use by other events
     NETNS_LIFETIME = 30 #seconds
 
+    ##
+    # The directory to find the installed Nagios plugins
+    #
+    NAGIOS_PLUGINS_DIR = '/usr/lib/nagios/plugins/'
 
+
+    LOG_SHORT_UIDS = true
 end

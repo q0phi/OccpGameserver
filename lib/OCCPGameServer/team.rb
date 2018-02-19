@@ -4,14 +4,8 @@ class Team #Really the TeamScheduler
 
     attr_accessor :teamname, :teamid, :speedfactor, :teamhost
     attr_accessor :singletonList, :periodicList, :INBOX
+    attr_accessor :singletonThread, :eventGroup
     attr_reader :STATE
-
-    #Thread State Modes
-    WAIT = 1
-    READY = 2
-    RUN = 3
-    STOP = 4
-    QUIT = 5
 
     def initialize()
 
@@ -25,9 +19,10 @@ class Team #Really the TeamScheduler
         @STATE = WAIT
     
         @INBOX = Queue.new
+        @singleEventQueue = Queue.new
 
-        @periodThread = Array.new
-        @singletonThread = Array.new
+        @periodThreads = ThreadGroup.new
+        @singletonThread = nil
         
         @singletonList = Array.new
         @periodicList = Array.new
@@ -55,28 +50,27 @@ class Team #Really the TeamScheduler
 
     def set_state(state)
 
+        raise InvalidState, "invalid state value sent: #{state}" if !OCCPGameServer.valid_state(state)
+        stateName = OCCPGameServer.constant_by_value(state)
+        $log.debug "Team #{@teamname} changing state to #{stateName}"
+
         oldstate = @STATE
         @STATE = state
 
         case state
         when WAIT
             if oldstate === RUN
-                @periodThread.each{|evThread|
-                    if evThread.alive?
-                        evThread.run
-                    end
+                @periodThreads.list.each{|evSchedThr|
+                    evSchedThr.run
                 }
-                #puts @singletonThread.inspect
                 if @singletonThread.alive?
                     @singletonThread.run
                 end
             end
         when RUN
             if oldstate === WAIT
-                @periodThread.each{|evThread|
-                    if evThread.alive?
-                        evThread.wakeup
-                    end
+                @periodThreads.list.each{|evSchedThr|
+                    evSchedThr.wakeup
                 }
                 if @singletonThread.alive?
                     @singletonThread.wakeup
@@ -85,10 +79,8 @@ class Team #Really the TeamScheduler
         when STOP
             @shuttingdown = true
             #Kill the PERIODIC Loops
-            @periodThread.each{|evThread|
-                if evThread.alive?
-                    evThread.run
-                end
+            @periodThreads.list.each{|evSchedThr|
+                evSchedThr.run
             }
             if @singletonThread.alive?
                 @singletonThread.run
@@ -97,7 +89,47 @@ class Team #Really the TeamScheduler
 
     end
 
+    ##
+    # Jump the current process to a new namespace
+    #
+    def namespace_jump(evOne)
 
+        netNS = nil
+        # Setup the execution space
+        # IE get a network namespace for this execution for the given IP address
+        if evOne.ipaddress != nil
+            ipPool = $appCore.get_ip_pool(evOne.ipaddress)
+            if !ipPool.nil? and ipPool[:ifname] != nil 
+                ipAddr = ipPool[:addresses][rand(ipPool[:addresses].length)]
+                netInfo = {:iface => ipPool[:ifname], :ipaddr => ipAddr , :cidr => ipPool[:cidr], :gateway => ipPool[:gateway] }
+                begin
+                    netNS = $appCore.get_netns(netInfo) 
+                rescue ArgumentError => e
+                    msg = "unable to create network namespace for event #{evOne.name} - #{e.message}; aborting execution"
+                    print msg.red
+                    $log.error msg.red
+                    return nil
+                end
+                
+                # Change to the correct network namespace if provided
+                fd = IO.sysopen('/var/run/netns/' + netNS.nsName, 'r')
+                $setns.call(fd, 0)
+                IO.new(fd, 'r').close
+
+            else
+                $log.debug "WARNING unable to run #{evOne.name} with invalid pool definition; aborting execution".light_yellow
+            end
+        else
+            $log.debug "WARNING event #{evOne.name} does not specify an ip address pool to send from".light_yellow
+        end
+
+        return netNS
+    end
+
+
+    ##
+    # Main run loop for the a team
+    #
     def run(app_core)
         
         from = @teamname
@@ -124,7 +156,7 @@ class Team #Really the TeamScheduler
 
         #Launch a separate thread for each of the periodically scheduled events.
         @periodicList.each {|event|
-            @periodThread << Thread.new {
+            periodThread = Thread.new {
         
                 Log4r::NDC.set_max_depth(72)
                 Log4r::NDC.inherit(stackLocal.clone)
@@ -133,83 +165,118 @@ class Team #Really the TeamScheduler
 
                 $log.debug("Creating periodic thread scheduler for: #{evOne.name} #{evOne.eventuid}")
                 #threaduid = evOne.eventuid
-                sleepFor = 0
-                drift = 0
-                    
-                loops = 0
+                
                 # Get the handler from the $appCore and launch the event
                 event_handler = $appCore.get_handler(evOne.eventhandler)
 
-                if @STATE === WAIT
-                    Thread.stop
-                end
+                drift = 0    
+                loops = 0
+                periodSleepCycle = 0
+                runOnce = false
                 # Event Scheduler Thread Run Loop
                 while not @shuttingdown do
                     
+                    #If interupted from sleep in order to pause, stop quickly
+                    if @STATE === WAIT
+                        Thread.stop
+                        #When we wakeup restart the sleep-loop
+                        next
+                    elsif @STATE === STOP
+                        break
+                    end
+                    
                     clock = $appCore.gameclock.gametime
 
-                    #Stop running this event after its end time
-                    if evOne.endtime < clock
-                        break
-                    end
-
-                    # Keep sleeping until the start time or until the next iteration
-                    while evOne.starttime > clock or sleepFor > 0
-
-                        clock = $appCore.gameclock.gametime
-                        #Special case while waiting to for starttime
+                    # Keep sleeping until the start time
+                    if evOne.starttime > clock
                         startSleep = evOne.starttime - clock
-                        if startSleep > 0
-                            sleep(startSleep)
-                        end
+                        sleep(startSleep)
+                        next # When we wakeup check the STATE
 
-                        #Check if last sleep cycle was interupted and continue it if needed
-                        if sleepFor > 0
-                            preClock = $appCore.gameclock.gametime
-                            sleep(sleepFor)
-                            postClock = $appCore.gameclock.gametime
-                            sleepFor = sleepFor - (postClock - preClock)
-                        end
-
-                        if sleepFor > 0 
-                            $log.debug("Woke up #{evOne.name} #{evOne.eventuid}")
-                        end
-                        #If interupted from sleep in order to pause, stop quickly
-                        if @STATE === WAIT
-                            Thread.stop
-                            #When we wakeup restart the sleep-loop
-                            next
-                        elsif @STATE === STOP
-                            break
-                            #$log.debug("CRUSHING EXIT".red)
-                            #Thread.exit
-                        end
-                    end
-                    
-                    
-                    if @STATE === STOP
+                    #Stop running this event after its end time
+                    elsif evOne.endtime < clock
                         break
+                    
+                    #Sleep for one full period
+                    elsif periodSleepCycle > 0.0
+                        preClock = $appCore.gameclock.gametime
+                        sleep(periodSleepCycle) # We don't use sleep return because it is rounded
+                        postClock = $appCore.gameclock.gametime
+                        periodActualSleep = postClock - preClock
+                        periodSleepCycle -= periodActualSleep 
+                        if periodSleepCycle > 0.0
+                            next # We have been interupted so check STATE
+                        end
+                    elsif runOnce #We have just run and it is time to sleep for one new period
+
+                        # Calculate or next sleep period
+                        drift = evOne.drift.eql?(0.0) ? 0.0 : Random.rand(evOne.drift*2)-(evOne.drift)
+                        periodSleepCycle = evOne.frequency + drift
+
+                        preClock = $appCore.gameclock.gametime
+                        sleep(periodSleepCycle) # We don't use sleep return because it is rounded
+                        postClock = $appCore.gameclock.gametime
+                        periodActualSleep = postClock - preClock
+                        
+                        #$log.debug "gametime: #{postClock.round(4)} periodSleepCycle: #{periodSleepCycle} periodActualSleep: #{periodActualSleep.round(4)}"
+                        periodSleepCycle -= periodActualSleep
+                        if periodSleepCycle > 0.0
+                            next # We have been interupted so check STATE
+                        elsif evOne.endtime < postClock
+                            break #if we over slept stop running
+                        end 
+
+                        #$log.debug("Woke up #{evOne.name} #{evOne.eventuid}")
                     end
+                    $log.debug "Starting next launch"
+                    runOnce = true
 
                     #For now an event and it's handler code are going to be assumed to run atomically from the scheduler
                     #IE once the handler has launched it can do whatever it wants until it returns
                     #If the GS is paused while it is running tough beans for us.
                     eventLocal = Thread.new do
 
-                        launchAt = $appCore.gameclock.gametime
-                        
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
-                        $log.debug("Launching Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)} for the #{loops} time")
+                
+                        #TODO if nil is returned we may want to abort execution?
+                        netNS = namespace_jump(evOne)
 
-                        #Run the event through its handler
-                        event_handler.run(evOne, app_core)
+                        launchAt = $appCore.gameclock.gametime
+                        thisloop = loops
+                        $log.debug("Launching Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)} for the #{thisloop} time")
 
-                        slept = evOne.frequency + drift
-                        msgtext = "PERIODIC ".green + evOne.name.to_s.light_magenta + " " +
-                            launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " + slept.to_s.light_magenta + " " + $appCore.gameclock.gametime.round(4).to_s.green
+                        begin
+
+                            #Run the event through its handler
+                            runResult = event_handler.run(evOne, app_core)
+
+                            finishAt = $appCore.gameclock.gametime
+                            slept = evOne.frequency + drift
+                            msgtext = "PERIODIC Scheduler: ".green + evOne.name.to_s.light_magenta + " #{thisloop} " +
+                                launchAt.round(4).to_s.yellow + " " + evOne.frequency.to_s.light_magenta + " " +
+                                slept.to_s.light_magenta + " " + finishAt.round(4).to_s.green
+
+                            $log.debug msgtext
+                            runResult[:scores].each {|score|
+                                score.merge!({:eventuid => evOne.eventuid, :eventid => evOne.eventid, 
+                                                :gametime => finishAt })
+                                app_core.INBOX << GMessage.new({:fromid=>'Team',:signal=>'SCORE', :msg=>score})
+                            }
+                            msgHash = runResult.merge({:eventname => evOne.name, :eventid=> evOne.eventid, :eventuid=> evOne.eventuid, 
+                                                      :starttime => launchAt, :endtime => finishAt })
+                            $appCore.INBOX << GMessage.new({:fromid=>'Team', :signal=>'EVENTLOG', :msg=>msgHash })
+
+                        rescue Exception => e
+
+                            $log.warn "Periodic Event: #{evOne.name} #{evOne.eventuid.light_magenta} error: #{e.message}"
+
+                        end
                         
-                        $log.debug msgtext
+                        # Release the namespace
+                        if !netNS.nil?
+                            $appCore.release_netns(netNS.nsName)
+                        end
 
                     end
                     
@@ -217,13 +284,11 @@ class Team #Really the TeamScheduler
                     loops = loops + 1
 
                     @eventGroup.add(eventLocal)
-
-                    drift = evOne.drift.eql?(0.0) ? 0.0 : Random.rand(evOne.drift*2)-(evOne.drift)
-                    sleepFor = evOne.frequency + drift
                    
                 end # end Event Scheduler Thread Loop
                 $log.debug("Exiting scheduler loop for: #{evOne.name} #{evOne.eventuid}".red)
             }#end periodThread
+            @periodThreads.add(periodThread)
         } #end periodicList
 
         ### Sparse Event Run Thread ###
@@ -234,6 +299,8 @@ class Team #Really the TeamScheduler
             
            
             $log.debug('Length of singleton list: ' + @singletonList.length.to_s)
+            $log.debug "Re-sorting singleton list"
+            @singletonList.sort!{|aEv,bEv| aEv.starttime <=> bEv.starttime }
 
             if @STATE === WAIT
                 Thread.stop
@@ -242,14 +309,10 @@ class Team #Really the TeamScheduler
             #Signal ready and wait for start signal
             while not @shuttingdown do
                 
-                $log.debug "Re-sorting singleton list"
-                @singletonList.sort!{|aEv,bEv| aEv.starttime <=> bEv.starttime }
-
                 # Search for the next single event to run
                 currentEvent = nil
                 @singletonList.each do |event|
-                    clock = $appCore.gameclock.gametime
-                    if event.starttime >= clock and not event.hasrun
+                    if !event.hasrun
                         currentEvent = event
                         break
                     end
@@ -262,8 +325,8 @@ class Team #Really the TeamScheduler
                     sleeptime = 0
                     clock = $appCore.gameclock.gametime
                     if currentEvent.starttime > clock
-                        sleeptime = currentEvent.starttime - clock
-                        sleep sleeptime
+                        sleeptime = currentEvent.starttime - clock  # TODO This section needs to be rethought if we are 
+                        sleep sleeptime                             # going to support adding events into this list dynamically
                     end  
                     
                     #If interupted from sleep in order to pause, stop quickly
@@ -275,39 +338,66 @@ class Team #Really the TeamScheduler
                         break
                     end
                    
-                    evOne = currentEvent.clone
-                    
+                    # After this point the event can be considered launched
+                    # This does not imply success or failure only that the scheduler
+                    # has launched an instance of the event
+                    currentEvent.setrunstate(true)
+                    @singleEventQueue << currentEvent
+
                     eventLocal = Thread.new do
                         
                         Log4r::NDC.set_max_depth(72)
                         Log4r::NDC.inherit(stackLocal.clone)
-                       
-                        launchAt = $appCore.gameclock.gametime
 
-                        if evOne.nil?
-                            $log.error("How did I get here at #{launchAt.to_s}".red)
+                        begin
+                            evOne = @singleEventQueue.pop(true)
+                        rescue Exception => e
+                            $log.warn "Single event queue pop missfire".yellow
                             return
                         end
 
+                        launchAt = $appCore.gameclock.gametime
                         $log.info("Launching Single Event: #{evOne.name} #{evOne.eventuid.light_magenta} at #{launchAt.round(4)}")
                         
-                        # Get the handler from the app_core and launch the event
-                        event_handler = $appCore.get_handler(evOne.eventhandler)
-                        event_handler.run(evOne, app_core)
-
-                        #Update this events status
-                        @singletonList.each do |event|
-                            if event.eventuid == evOne.eventuid
-                                event.setrunstate(true)
-                                break
-                            end
-                        end
-
-                        msgtext = 'SINGLETON '.green + "#{evOne.name.to_s.light_magenta} #{evOne.eventuid.to_s.light_magenta} at #{launchAt.round(4).to_s.yellow} end #{$appCore.gameclock.gametime.round(4).to_s.green}"
+                        #TODO if nil is returned we may want to abort execution?
+                        netNS = namespace_jump(evOne)
                         
-                        $log.debug msgtext
+                        begin
 
-                    end
+                            # Get the handler from the app_core and launch the event
+                            event_handler = $appCore.get_handler(evOne.eventhandler)
+                            runResult = event_handler.run(evOne, app_core)
+
+                            finishAt = $appCore.gameclock.gametime
+                        
+                            msgtext = 'SINGLETON '.green + "#{evOne.name.to_s.light_magenta} #{evOne.eventuid.to_s.light_magenta}" + 
+                                        " at #{launchAt.round(4).to_s.yellow} end #{finishAt.round(4).to_s.green}" 
+                            $log.debug msgtext
+                            
+                            # Process Scoring Data
+                            runResult[:scores].each {|score|
+                                score.merge!({:eventuid => evOne.eventuid, :eventid => evOne.eventid, 
+                                                :gametime => finishAt })
+                                app_core.INBOX << GMessage.new({:fromid=>'Team',:signal=>'SCORE', :msg=>score})
+                            }
+                            
+                            # Process the EventLog data
+                            msgHash = runResult.merge({:eventname => evOne.name, :eventid=> evOne.eventid, :eventuid=> evOne.eventuid, 
+                                                      :starttime => launchAt, :endtime => finishAt })
+                            $appCore.INBOX << GMessage.new({:fromid=>'Team', :signal=>'EVENTLOG', :msg=>msgHash })
+
+                        rescue Exception => e
+
+                            $log.warn "Singleton Event: #{evOne.name} #{evOne.eventuid.light_magenta} error: #{e.message}"
+
+                        end
+                        
+                        # Release the namespace
+                        if !netNS.nil?
+                            $appCore.release_netns(netNS.nsName)
+                        end
+                        
+                    end # end Thread
 
                     @eventGroupSingle.add(eventLocal)
 
@@ -354,7 +444,7 @@ class Team #Really the TeamScheduler
 
         end #Message Poll End
 
-        @periodThread.each {|thr|
+        @periodThreads.list.each {|thr|
             thr.join
         }
         @eventGroup.list.each{|ev|

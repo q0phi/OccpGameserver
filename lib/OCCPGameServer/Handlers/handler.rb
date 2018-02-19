@@ -10,6 +10,16 @@ module OCCPGameServer
 
         end
 
+        def parse_event(event, appCore)
+            require 'securerandom'
+
+            eh = event.attributes.to_h.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
+            
+            eh.merge!({:eventuid => SecureRandom.uuid})
+
+            return eh
+        end
+
         def run(event, app_core)
             #Stub
         end
