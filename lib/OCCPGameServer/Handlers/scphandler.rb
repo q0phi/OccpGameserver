@@ -73,7 +73,7 @@ class ScpHandler < Handler
             $log.debug "Beginning SCP session to remote server"
             #success = system(event.command, [:out, :err]=>'/dev/null')
             Net::SCP.start(event.serverip, event.serveruser, {:password => event.serverpass, :number_of_password_prompts => 1,
-                                                                :paranoid => false, :timeout=>3}){ |scp|
+                                                                :verify_host_key => false, :timeout=>3}){ |scp|
                 event.uploads.each{ |uploadF|
                     begin
                         if File.file?(uploadF[:source])
